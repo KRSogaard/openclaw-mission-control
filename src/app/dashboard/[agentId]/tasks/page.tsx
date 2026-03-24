@@ -715,27 +715,6 @@ export default function TasksPage({
   }
 
   /* ---- Empty state ---- */
-  if (tasks.length === 0 && !showCreate) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-          <IconBoard />
-        </div>
-        <p className="text-sm text-muted-foreground">No tasks yet</p>
-        <p className="text-xs text-muted-foreground/50">
-          Create a task to send work to this agent
-        </p>
-        <Button
-          size="sm"
-          onClick={() => setShowCreate(true)}
-          className="mt-2 bg-sky-600 hover:bg-sky-700 text-white text-xs"
-        >
-          New task
-        </Button>
-      </div>
-    );
-  }
-
   /* ---- Main board layout ---- */
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
