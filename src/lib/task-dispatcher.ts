@@ -37,7 +37,7 @@ export function recoverOrphanedTasks(): void {
         .set({ status: "queued", retryCount: task.retryCount + 1, updatedAt: Date.now() })
         .where(eq(agentTasks.id, task.id))
         .run();
-      logEvent(task.id, "recovered", "No session — re-queued", "system");
+      logEvent(task.id, "resumed", "No session — re-queued after restart", "system");
       continue;
     }
 
@@ -62,7 +62,7 @@ export function recoverOrphanedTasks(): void {
       .where(eq(agentTasks.id, task.id))
       .run();
 
-    logEvent(task.id, "recovered", "Server restarted — sending check-in on existing session", "system");
+    logEvent(task.id, "resumed", "Server restarted — checking in with agent", "system");
 
     sendCheckIn(task.id, task.agentId, task.sessionKey, task.title);
   }
@@ -91,7 +91,7 @@ async function sendCheckIn(taskId: string, agentId: string, sessionKey: string, 
       deliver: false,
     });
   } catch {
-    logEvent(taskId, "recovered", "Failed to send check-in — will rely on timeout", "system");
+    logEvent(taskId, "resumed", "Check-in failed — will rely on timeout", "system");
   }
 }
 

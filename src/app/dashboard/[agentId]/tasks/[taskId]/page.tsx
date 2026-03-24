@@ -32,6 +32,7 @@ const EVENT_DOT: Record<string, string> = {
   failed: "bg-red-500",
   cancelled: "bg-zinc-500",
   retried: "bg-violet-500",
+  resumed: "bg-sky-400",
 };
 
 function formatTime(ts: number): string {
