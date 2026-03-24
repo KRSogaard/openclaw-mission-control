@@ -1,48 +1,54 @@
 # OpenClaw Mission Control
 
-Dashboard for managing [OpenClaw](https://github.com/openclaw/openclaw) agent instances. Browse agent hierarchies, manage workspace files, configure models and permissions, and dispatch tasks to agents.
+A lightweight sidecar dashboard for [OpenClaw](https://github.com/openclaw/openclaw). Visualize your agent hierarchy, browse workspaces, manage permissions, and dispatch tasks — without replacing anything.
+
+## Philosophy
+
+Mission Control is a **decorator, not a replacement**. OpenClaw owns your agents, config, and runtime. Mission Control just gives you a window into it.
+
+**OpenClaw is the source of truth.** Mission Control reads `~/.openclaw/openclaw.json` directly. It doesn't maintain its own copy of your agent definitions, channel bindings, or model assignments. When you change a model through the dashboard, it writes back to `openclaw.json` — the same file the gateway reads. There's no sync to get out of date, no migration to run, no import step.
+
+**Agents created outside Mission Control just appear.** Add an agent via the CLI, edit the config by hand, or let another tool manage it — Mission Control picks it up on the next page load. It doesn't need to know how agents got there.
+
+**The database is optional context, not required state.** Mission Control uses a local SQLite file for things OpenClaw doesn't track: hierarchy ordering, task queues, agent descriptions, audit logs. If you delete it, you lose your drag-and-drop arrangement and task history — but every agent, model, channel, and permission is still in `openclaw.json` exactly where you left it.
+
+**Single process, zero infrastructure.** One `npm run dev` and you're running. No Docker compose, no external database, no backend service to maintain. The SQLite file creates itself on first request.
+
+### Why this approach
+
+Most dashboards want to become the control plane — they introduce their own database, their own agent model, their own workflow engine. You end up with two sources of truth that inevitably drift apart.
+
+Mission Control takes the opposite approach. It's a lens, not a ledger. The benefits:
+
+- **Nothing to migrate.** Point it at your existing OpenClaw instance and it works. Your config doesn't change.
+- **Nothing to break.** Remove Mission Control and OpenClaw keeps running exactly as before. It never depended on us.
+- **Nothing to sync.** Agent data comes from one place (`openclaw.json`), read at request time. There's no eventual consistency problem because there's no second copy.
+- **Safe to experiment.** Try it on a running system. If you don't like it, stop the process. Zero cleanup.
 
 ## Features
 
-- **Agent Hierarchy** — Org-chart view of your agents with drag-and-drop reordering
-- **Agent Dashboard** — Per-agent overview with model selection, channel bindings, sub-agent access, and agent-to-agent peer management
-- **Workspace File Browser** — Browse, view, edit, create, and delete files in agent workspaces
-- **Task System** — Kanban board for dispatching tasks to agents via the OpenClaw gateway, with timeout/retry logic and full audit logs
-- **Tool Sync** — Automatically writes Mission Control tool definitions to each agent's `TOOLS.md` so agents can report task status
+- **Agent Hierarchy** — Org-chart view with drag-and-drop reordering. Auto-infers parent-child relationships from agent naming conventions.
+- **Agent Dashboard** — Per-agent overview with model selection, channel bindings, sub-agent access, agent-to-agent peer management, and mention patterns.
+- **Workspace File Browser** — Browse, view, edit, create, and delete files in agent workspaces. URL-synced navigation for browser back/forward.
+- **Task System** — Kanban board (To-Do / Running / Done / Failed) for dispatching work to agents via the OpenClaw gateway. Per-agent queues, configurable timeouts, automatic retries, and full audit logs.
+- **Tool Sync** — Appends Mission Control tool definitions to each agent's `TOOLS.md` with versioned markers. Agents can report task progress and completion back. Updates automatically when tools change.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 18+
 - A running [OpenClaw](https://github.com/openclaw/openclaw) gateway instance
-- The OpenClaw gateway token (from the dashboard URL hash)
+- The OpenClaw gateway token
 
 ## Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/KRSogaard/openclaw-mission-control.git
 cd openclaw-mission-control
-
-# Install dependencies
 npm install
 
-# Configure
 cp .env.example .env.local
-# Edit .env.local with your OpenClaw gateway URL and token
-```
+# Edit .env.local with your gateway URL and token
 
-Edit `.env.local`:
-
-```env
-OPENCLAW_URL=http://localhost:18789
-OPENCLAW_TOKEN=your-openclaw-gateway-token
-
-# URL that agents use to reach Mission Control (for task callbacks)
-MC_INTERNAL_URL=http://localhost:3000
-```
-
-```bash
-# Start
 npm run dev
 ```
 
@@ -50,46 +56,43 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENCLAW_URL` | Yes | OpenClaw gateway HTTP URL (e.g. `http://localhost:18789`) |
-| `OPENCLAW_TOKEN` | Yes | Gateway auth token |
-| `MC_INTERNAL_URL` | No | URL agents use to call back to Mission Control. Default: `http://localhost:3000` |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENCLAW_URL` | Yes | — | OpenClaw gateway URL (e.g. `http://localhost:18789`) |
+| `OPENCLAW_TOKEN` | Yes | — | Gateway auth token |
+| `MC_INTERNAL_URL` | No | `http://localhost:3000` | URL agents use to call back to Mission Control for task reporting |
 
 ## Architecture
 
-Mission Control is **API-first**. The browser talks only to the Next.js backend — never directly to OpenClaw.
-
 ```
 Browser  →  Next.js API routes  →  OpenClaw gateway (WebSocket)
-                                →  Filesystem (agent workspaces)
-                                →  SQLite (hierarchy, tasks, settings)
+                                →  ~/.openclaw/openclaw.json (read/write)
+                                →  Agent workspaces (filesystem)
+                                →  data/mission-control.db (SQLite)
 ```
 
-### OpenClaw Gateway Connection
+**API-first.** The browser talks only to the Next.js backend. The OpenClaw gateway URL, token, and filesystem paths never reach the client.
 
-Connects via WebSocket at `ws://{host}:{port}/ws` with challenge-response authentication. The connection uses `openclaw-control-ui` client mode with `operator.admin` scope.
+**What lives where:**
 
-### Database
-
-SQLite (via Drizzle ORM + better-sqlite3) at `data/mission-control.db`. Auto-created on first request. Tables:
-
-- `agent_hierarchy` — Parent-child relationships and descriptions
-- `agent_tasks` — Task queue with status tracking
-- `agent_task_events` — Audit log for every task state change
-- `agent_task_settings` — Per-agent timeout and retry configuration
+| Data | Source of truth | Mission Control's role |
+|------|----------------|----------------------|
+| Agents, models, channels, bindings | `openclaw.json` | Reads and writes back to it |
+| Agent workspace files | Filesystem | Direct read/write |
+| Gateway status, available models | OpenClaw gateway (WebSocket) | Queries via `status` and `models.list` RPC |
+| Hierarchy ordering, descriptions | SQLite | Owns this (decorative layer) |
+| Task queue, audit log, settings | SQLite | Owns this (operational layer) |
 
 ### Task System
 
-Tasks are dispatched to agents via `chat.send` through the OpenClaw gateway WebSocket. Each agent has its own queue — one task runs at a time per agent.
+Tasks dispatch to agents via `chat.send` through the gateway WebSocket. Each agent has its own queue — one task at a time.
 
-**Flow:**
 1. Operator creates task → queued in SQLite → dispatched via `chat.send`
-2. Agent works → calls `task.update` or `task.complete` via exec/curl to Mission Control's hook endpoint
+2. Agent works → calls `task.complete` or `task.update` via exec/curl back to Mission Control
 3. On completion → next queued task auto-dispatches
-4. On timeout → retry with check-in message → fail after max retries
+4. On timeout → retry with check-in → fail after max retries
 
-**Tool registration:** On startup, Mission Control appends tool definitions to each agent's `TOOLS.md` with versioned markers (`<!-- BEGIN:MC_TOOLS -->` / `<!-- END:MC_TOOLS -->`). A hooks token is auto-generated at `~/.openclaw/credentials/mc-hooks-token`.
+Tool definitions are appended to each agent's `TOOLS.md` between `<!-- BEGIN:MC_TOOLS -->` / `<!-- END:MC_TOOLS -->` markers. A hooks auth token is auto-generated at `~/.openclaw/credentials/mc-hooks-token` on first startup.
 
 ## API Reference
 
@@ -101,21 +104,21 @@ All responses use the envelope `{ data: T }` or `{ error: { code, message } }`.
 | GET | `/api/models` | Available models from gateway |
 | GET | `/api/agents` | List all agents |
 | GET | `/api/agents/:id` | Agent detail with config |
-| PATCH | `/api/agents/:id` | Update agent model, sub-agents, or peers |
+| PATCH | `/api/agents/:id` | Update model, sub-agents, or peers |
 | GET | `/api/agents/:id/files?path=` | List directory |
 | GET | `/api/agents/:id/files/read?path=` | Read file |
 | PUT | `/api/agents/:id/files/read?path=` | Create/update file |
 | DELETE | `/api/agents/:id/files/read?path=` | Delete file |
 | GET | `/api/agents/hierarchy` | Agent tree |
-| PUT | `/api/agents/hierarchy` | Reparent/reorder agent |
-| PATCH | `/api/agents/hierarchy` | Update agent description |
+| PUT | `/api/agents/hierarchy` | Reparent/reorder |
+| PATCH | `/api/agents/hierarchy` | Update description |
 | GET | `/api/agents/:id/tasks` | List tasks |
 | POST | `/api/agents/:id/tasks` | Create and dispatch task |
 | DELETE | `/api/agents/:id/tasks/:taskId` | Cancel task |
 | GET | `/api/agents/:id/tasks/:taskId/events` | Task audit log |
-| GET | `/api/agents/:id/task-settings` | Task timeout/retry config |
-| PATCH | `/api/agents/:id/task-settings` | Update task settings |
-| POST | `/api/hooks/task` | Agent callback (task.complete, task.update, task.create) |
+| GET | `/api/agents/:id/task-settings` | Timeout/retry config |
+| PATCH | `/api/agents/:id/task-settings` | Update settings |
+| POST | `/api/hooks/task` | Agent callback endpoint |
 
 ## License
 
