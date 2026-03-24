@@ -165,9 +165,9 @@ export default function AgentWorkspacePage({
           lang,
           themes: { dark: "github-dark", light: "github-light" },
         });
-        setHighlightedHtml(addLineNumbers(html));
+        setHighlightedHtml(html);
       } catch {
-        setHighlightedHtml(wrapPlainWithLineNumbers(selectedFile.content));
+        setHighlightedHtml(null);
       }
     });
     return () => { cancelled = true; };
@@ -680,10 +680,21 @@ export default function AgentWorkspacePage({
               ) : (
                 <ScrollArea className="flex-1">
                   {highlightedHtml ? (
-                    <div
-                      className="shiki-wrapper text-sm [&_pre]:!bg-transparent [&_pre]:p-4 [&_code]:font-mono [&_.line]:leading-6 [&_.line]:flex [&_.line-number]:inline-block [&_.line-number]:w-12 [&_.line-number]:shrink-0 [&_.line-number]:select-none [&_.line-number]:pr-4 [&_.line-number]:text-right [&_.line-number]:text-xs [&_.line-number]:text-muted-foreground/50"
-                      dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-                    />
+                    <div className="flex min-h-full">
+                      <div
+                        className="shrink-0 select-none border-r border-border bg-muted/30 py-4 text-right font-mono text-xs leading-6 text-muted-foreground/40"
+                        style={{ width: "3rem", paddingRight: "0.75rem" }}
+                        aria-hidden
+                      >
+                        {selectedFile.content.split("\n").map((_, i) => (
+                          <div key={i}>{i + 1}</div>
+                        ))}
+                      </div>
+                      <div
+                        className="flex-1 text-sm [&_pre]:!bg-transparent [&_pre]:!m-0 [&_pre]:p-4 [&_code]:font-mono [&_.line]:leading-6"
+                        dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+                      />
+                    </div>
                   ) : (
                     <div className="space-y-2 p-4">
                       <Skeleton className="h-4 w-3/4 bg-muted" />
