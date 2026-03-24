@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Highlighter } from "shiki";
 import type {
   AgentView,
   ApiResponse,
@@ -12,34 +11,7 @@ import type {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-
-let highlighterPromise: Promise<Highlighter> | null = null;
-function getHighlighter(): Promise<Highlighter> {
-  if (!highlighterPromise) {
-    highlighterPromise = import("shiki").then((shiki) =>
-      shiki.createHighlighter({
-        themes: ["github-dark", "github-light"],
-        langs: [
-          "typescript", "tsx", "javascript", "jsx", "json", "markdown",
-          "yaml", "css", "html", "bash", "python", "rust", "go", "sql",
-          "toml", "xml",
-        ],
-      })
-    );
-  }
-  return highlighterPromise;
-}
-import Editor from "react-simple-code-editor";
-
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function extractLines(shikiHtml: string): string[] {
-  const codeMatch = shikiHtml.match(/<code[^>]*>([\s\S]*?)<\/code>/);
-  if (!codeMatch) return [];
-  return codeMatch[1].split(/\n/).filter((l) => l.includes("class=\"line\""));
-}
+import { CodeEditor } from "@/components/code-editor";
 
 
 import {
@@ -128,50 +100,9 @@ export default function AgentWorkspacePage({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
-  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
-  const highlighterRef = useRef<Highlighter | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const newFileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    getHighlighter().then((h) => { highlighterRef.current = h; });
-  }, []);
-
-  useEffect(() => {
-    setHighlightedHtml(null);
-    if (!selectedFile?.content) return;
-    let cancelled = false;
-    getHighlighter().then((h) => {
-      if (cancelled) return;
-      try {
-        const lang = selectedFile.language ?? "text";
-        const html = h.codeToHtml(selectedFile.content, {
-          lang,
-          themes: { dark: "github-dark", light: "github-light" },
-        });
-        setHighlightedHtml(html);
-      } catch {
-        setHighlightedHtml(null);
-      }
-    });
-    return () => { cancelled = true; };
-  }, [selectedFile?.content, selectedFile?.language]);
-
-  const highlightCode = useCallback((code: string): string => {
-    const h = highlighterRef.current;
-    const lang = selectedFile?.language;
-    if (!h || !lang) return escapeHtml(code);
-    try {
-      const html = h.codeToHtml(code, {
-        lang,
-        themes: { dark: "github-dark", light: "github-light" },
-      });
-      return html.replace(/^<pre[^>]*><code[^>]*>/, "").replace(/<\/code><\/pre>$/, "");
-    } catch {
-      return escapeHtml(code);
-    }
-  }, [selectedFile?.language]);
 
   const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp"]);
   function isImageFile(filePath: string): boolean {
@@ -617,27 +548,16 @@ export default function AgentWorkspacePage({
                     }
                   }}
                 >
-                  <ScrollArea className="flex-1">
-                    <div className="flex min-h-full">
-                      <div
-                        className="shrink-0 select-none border-r border-border bg-muted/30 text-right font-mono text-xs leading-6 text-muted-foreground/30"
-                        style={{ width: "3rem", paddingRight: "0.75rem", paddingTop: "16px", paddingBottom: "16px" }}
-                        aria-hidden
-                      >
-                        {editContent.split("\n").map((_, i) => (
-                          <div key={i}>{i + 1}</div>
-                        ))}
-                      </div>
-                      <Editor
-                        value={editContent}
-                        onValueChange={setEditContent}
-                        highlight={highlightCode}
-                        padding={16}
-                        className="shiki min-h-full min-w-0 flex-1 overflow-x-auto font-mono text-sm leading-6 [&_textarea]:outline-none [&_textarea]:!text-transparent [&_textarea]:whitespace-pre [&_textarea]:!overflow-x-auto [&_pre]:whitespace-pre [&_pre]:!overflow-x-visible"
-                        style={{ fontFamily: "var(--font-geist-mono), monospace" }}
-                      />
-                    </div>
-                  </ScrollArea>
+                  <div className="flex-1">
+                    <CodeEditor
+                      value={editContent}
+                      language={selectedFile.language}
+                      readOnly={false}
+                      onChange={setEditContent}
+                      onSave={() => saveFile()}
+                      onCancel={() => { setIsEditing(false); setEditContent(""); }}
+                    />
+                  </div>
                   <div className="flex items-center gap-2 border-t border-border px-4 py-2">
                     <Button
                       size="sm"
@@ -663,31 +583,13 @@ export default function AgentWorkspacePage({
                   </div>
                 </div>
               ) : (
-                <ScrollArea className="flex-1">
-                  {highlightedHtml ? (
-                    <div className="shiki p-4 font-mono text-sm">
-                      {extractLines(highlightedHtml).map((lineHtml, i) => (
-                        <div key={i} className="group flex hover:bg-muted/30">
-                          <span className="sticky left-0 inline-block w-12 shrink-0 select-none border-r border-border bg-muted/30 pr-3 text-right font-mono text-xs leading-6 text-muted-foreground/30 group-hover:text-muted-foreground/60">
-                            {i + 1}
-                          </span>
-                          <span
-                            className="min-w-0 flex-1 whitespace-pre-wrap break-words pl-4 leading-6"
-                            dangerouslySetInnerHTML={{ __html: lineHtml }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-2 p-4">
-                      <Skeleton className="h-4 w-3/4 bg-muted" />
-                      <Skeleton className="h-4 w-full bg-muted" />
-                      <Skeleton className="h-4 w-5/6 bg-muted" />
-                      <Skeleton className="h-4 w-2/3 bg-muted" />
-                      <Skeleton className="h-4 w-4/5 bg-muted" />
-                    </div>
-                  )}
-                </ScrollArea>
+                <div className="flex-1">
+                  <CodeEditor
+                    value={selectedFile.content}
+                    language={selectedFile.language}
+                    readOnly={true}
+                  />
+                </div>
               )}
             </div>
           ) : (
