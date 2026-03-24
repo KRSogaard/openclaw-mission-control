@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GitBranch, Users, Stethoscope } from "lucide-react";
+import { GitBranch, Users, Stethoscope, RotateCcw } from "lucide-react";
 import type { ApiResponse, GatewayStatus } from "@/lib/types";
 import {
   Sidebar,
@@ -51,32 +51,36 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [status, setStatus] = useState<GatewayStatus | null>(null);
+  const [restarting, setRestarting] = useState(false);
   const pathname = usePathname();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchStatus() {
-      try {
-        const res = await fetch("/api/status");
-        const json = (await res.json()) as ApiResponse<GatewayStatus>;
-        if (!cancelled && json.data) {
-          setStatus(json.data);
-        }
-      } catch {
-        if (!cancelled) {
-          setStatus({ online: false, version: null });
-        }
-      }
+  async function fetchStatus() {
+    try {
+      const res = await fetch("/api/status");
+      const json = (await res.json()) as ApiResponse<GatewayStatus>;
+      if (json.data) setStatus(json.data);
+    } catch {
+      setStatus({ online: false, version: null });
     }
+  }
 
+  useEffect(() => {
     fetchStatus();
     const interval = setInterval(fetchStatus, 15_000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, []);
+
+  async function handleRestart() {
+    if (!window.confirm("Restart the OpenClaw gateway? Active sessions will be interrupted.")) return;
+    setRestarting(true);
+    try {
+      await fetch("/api/gateway/restart", { method: "POST" });
+      setStatus({ online: false, version: null });
+      setTimeout(fetchStatus, 5000);
+    } finally {
+      setRestarting(false);
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -145,7 +149,15 @@ export default function DashboardLayout({
         </SidebarContent>
 
         <SidebarFooter>
-          <div className="flex items-center justify-center group-data-[collapsible=icon]:justify-center">
+          <div className="flex items-center justify-center gap-1 group-data-[collapsible=icon]:justify-center">
+            <button
+              onClick={handleRestart}
+              disabled={restarting}
+              title="Restart OpenClaw gateway"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+              <RotateCcw className={`size-4 ${restarting ? "animate-spin" : ""}`} />
+            </button>
             <ThemeToggle />
           </div>
         </SidebarFooter>
