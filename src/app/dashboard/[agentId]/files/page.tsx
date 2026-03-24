@@ -620,7 +620,7 @@ export default function AgentWorkspacePage({
                   <ScrollArea className="flex-1">
                     <div className="flex min-h-full">
                       <div
-                        className="shrink-0 select-none border-r border-border bg-muted/30 py-4 text-right font-mono text-xs leading-6 text-muted-foreground/40"
+                        className="shrink-0 select-none border-r border-border bg-muted/30 py-4 text-right font-mono text-xs leading-6 text-muted-foreground/30"
                         style={{ width: "3rem", paddingRight: "0.75rem" }}
                         aria-hidden
                       >
@@ -668,7 +668,7 @@ export default function AgentWorkspacePage({
                     <div className="shiki p-4 font-mono text-sm">
                       {extractLines(highlightedHtml).map((lineHtml, i) => (
                         <div key={i} className="group flex hover:bg-muted/30">
-                          <span className="sticky left-0 inline-block w-12 shrink-0 select-none border-r border-border bg-muted/30 pr-3 text-right font-mono text-xs leading-6 text-muted-foreground/50 group-hover:text-muted-foreground">
+                          <span className="sticky left-0 inline-block w-12 shrink-0 select-none border-r border-border bg-muted/30 pr-3 text-right font-mono text-xs leading-6 text-muted-foreground/30 group-hover:text-muted-foreground/60">
                             {i + 1}
                           </span>
                           <span
