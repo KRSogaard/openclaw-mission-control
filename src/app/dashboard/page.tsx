@@ -87,8 +87,8 @@ function DraggableCard({
           "relative cursor-grab rounded-xl border px-5 py-3.5 select-none",
           "min-w-[200px] max-w-[280px] transition-colors",
           agent.isDefault
-            ? "border-emerald-700/60 bg-zinc-900 ring-1 ring-emerald-600/20"
-            : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80",
+            ? "border-emerald-700/60 bg-card ring-1 ring-emerald-600/20"
+            : "border-border bg-card hover:bg-muted",
         ].join(" ")}
       >
         {agent.isDefault && (
@@ -104,7 +104,7 @@ function DraggableCard({
             onPointerDown={(e) => e.stopPropagation()}
             className={[
               "font-semibold leading-tight hover:underline",
-              agent.isDefault ? "text-base text-zinc-50" : "text-sm text-zinc-100",
+              agent.isDefault ? "text-base text-foreground" : "text-sm text-foreground",
             ].join(" ")}
           >
             {agent.name}
@@ -130,7 +130,7 @@ function DraggableCard({
                 onKeyDown={handleKeyDown}
                 onPointerDown={(e) => e.stopPropagation()}
                 rows={2}
-                className="rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-100 border border-zinc-700 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="rounded bg-muted px-2 py-1 text-xs text-foreground border border-border focus:outline-none focus:ring-1 focus:ring-sky-500"
                 placeholder="Add description..."
               />
               <div className="flex gap-1">
@@ -146,7 +146,7 @@ function DraggableCard({
                   onClick={handleCancel}
                   disabled={isSaving}
                   onPointerDown={(e) => e.stopPropagation()}
-                  className="flex-1 rounded bg-zinc-700 px-2 py-1 text-[10px] font-medium text-zinc-200 hover:bg-zinc-600 disabled:opacity-50"
+                  className="flex-1 rounded bg-muted px-2 py-1 text-[10px] font-medium text-foreground hover:bg-accent disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -158,9 +158,9 @@ function DraggableCard({
               className="mt-1 cursor-pointer"
             >
               {agent.description ? (
-                <p className="text-xs text-zinc-400 break-words">{agent.description}</p>
+                <p className="text-xs text-muted-foreground break-words">{agent.description}</p>
               ) : (
-                <p className="text-xs text-zinc-600 italic">Add description...</p>
+                <p className="text-xs text-muted-foreground/50 italic">Add description...</p>
               )}
             </div>
           )}
@@ -194,11 +194,11 @@ function DropSlot({
         orientation === "vertical" ? "w-14 self-stretch min-h-[60px]" : "h-12 w-full",
         isOver
           ? "border-sky-500 bg-sky-950/30"
-          : "border-zinc-700/40",
+          : "border-border",
       ].join(" ")}
     >
       {label && (
-        <span className={`text-[10px] ${isOver ? "text-sky-400" : "text-zinc-600"}`}>
+        <span className={`text-[10px] ${isOver ? "text-sky-400" : "text-muted-foreground/50"}`}>
           {isOver ? "release" : label}
         </span>
       )}
@@ -222,17 +222,17 @@ function NestSlot({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="h-3 w-px bg-zinc-700" />
+      <div className="h-3 w-px bg-border" />
       <div
         ref={setNodeRef}
         className={[
           "flex items-center justify-center rounded-lg border-2 border-dashed px-4 py-2 transition-all duration-150 min-w-[140px]",
           isOver
             ? "border-sky-500 bg-sky-950/30"
-            : "border-zinc-700/40",
+            : "border-border",
         ].join(" ")}
       >
-        <span className={`text-[10px] ${isOver ? "text-sky-400" : "text-zinc-600"}`}>
+        <span className={`text-[10px] ${isOver ? "text-sky-400" : "text-muted-foreground/50"}`}>
           {isOver ? "release to nest" : "drop as child"}
         </span>
       </div>
@@ -259,7 +259,7 @@ function TreeNode({
 
       {node.children.length > 0 && (
         <div className="flex flex-col items-center">
-          <div className="h-6 w-px bg-zinc-700" />
+          <div className="h-6 w-px bg-border" />
           <div className="flex items-start">
             <DropSlot
               id={`before:${node.agent.id}:0`}
@@ -273,7 +273,7 @@ function TreeNode({
                   {node.children.length > 1 && (
                     <div
                       className={[
-                        "absolute top-0 h-px bg-zinc-700",
+                        "absolute top-0 h-px bg-border",
                         i === 0
                           ? "left-1/2 right-0"
                           : i === node.children.length - 1
@@ -282,7 +282,7 @@ function TreeNode({
                       ].join(" ")}
                     />
                   )}
-                  <div className="h-6 w-px bg-zinc-700" />
+                  <div className="h-6 w-px bg-border" />
                   <TreeNode node={child} activeId={activeId} onDescriptionChange={onDescriptionChange} />
                 </div>
 
@@ -302,9 +302,9 @@ function TreeNode({
 
 function OverlayCard({ agent }: { agent: AgentSummary }) {
   return (
-    <div className="rounded-xl border border-sky-500/70 bg-zinc-900 px-5 py-3.5 shadow-2xl shadow-sky-500/10 ring-2 ring-sky-500/30 min-w-[200px] max-w-[280px]">
+    <div className="rounded-xl border border-sky-500/70 bg-card px-5 py-3.5 shadow-2xl shadow-sky-500/10 ring-2 ring-sky-500/30 min-w-[200px] max-w-[280px]">
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-semibold text-zinc-50">{agent.name}</span>
+        <span className="text-sm font-semibold text-foreground">{agent.name}</span>
         <Badge variant="outline" className="w-fit font-mono text-[10px]">
           {agent.model}
         </Badge>
@@ -316,11 +316,11 @@ function OverlayCard({ agent }: { agent: AgentSummary }) {
 function LoadingSkeleton() {
   return (
     <div className="flex flex-col items-center gap-6 p-12">
-      <Skeleton className="h-20 w-56 rounded-xl bg-zinc-800" />
+      <Skeleton className="h-20 w-56 rounded-xl bg-muted" />
       <div className="flex gap-12 mt-6">
-        <Skeleton className="h-16 w-48 rounded-xl bg-zinc-800" />
-        <Skeleton className="h-16 w-48 rounded-xl bg-zinc-800" />
-        <Skeleton className="h-16 w-48 rounded-xl bg-zinc-800" />
+        <Skeleton className="h-16 w-48 rounded-xl bg-muted" />
+        <Skeleton className="h-16 w-48 rounded-xl bg-muted" />
+        <Skeleton className="h-16 w-48 rounded-xl bg-muted" />
       </div>
     </div>
   );
@@ -477,9 +477,9 @@ export default function HierarchyPage() {
   const activeAgent = activeId ? agentsRef.current.get(activeId) ?? null : null;
 
   const toolbar = (
-    <div className="flex items-center gap-4 border-b border-zinc-800 px-6 py-3">
-      <h2 className="text-sm font-medium text-zinc-300">Agent Hierarchy</h2>
-      {isUpdating && <span className="ml-auto text-xs text-zinc-500">Saving&hellip;</span>}
+    <div className="flex items-center gap-4 border-b border-border px-6 py-3">
+      <h2 className="text-sm font-medium text-muted-foreground">Agent Hierarchy</h2>
+      {isUpdating && <span className="ml-auto text-xs text-muted-foreground">Saving&hellip;</span>}
       {error && !isUpdating && <span className="ml-auto text-xs text-red-400">{error}</span>}
     </div>
   );

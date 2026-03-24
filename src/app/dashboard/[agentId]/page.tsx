@@ -46,14 +46,14 @@ function AgentAccessCard({
   }
 
   return (
-    <Card className="bg-zinc-900 border-zinc-800">
+    <Card className="bg-card border-border">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-zinc-50 text-sm">{title}</CardTitle>
-            <p className="text-[11px] text-zinc-500 mt-0.5">{subtitle}</p>
+            <CardTitle className="text-foreground text-sm">{title}</CardTitle>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
           </div>
-          {isSaving && <span className="text-[10px] text-zinc-500">Saving...</span>}
+          {isSaving && <span className="text-[10px] text-muted-foreground">Saving...</span>}
         </div>
       </CardHeader>
       <CardContent>
@@ -64,9 +64,9 @@ function AgentAccessCard({
               checked={allSelected || isWildcard}
               onChange={handleSelectAll}
               disabled={isSaving}
-              className="rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
+              className="rounded border-border bg-muted text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
             />
-            <span className={`text-sm font-medium ${allSelected || isWildcard ? "text-emerald-400" : "text-zinc-300"}`}>
+            <span className={`text-sm font-medium ${allSelected || isWildcard ? "text-emerald-400" : "text-muted-foreground"}`}>
               Select all
             </span>
             {isWildcard && supportsWildcard && (
@@ -75,19 +75,19 @@ function AgentAccessCard({
           </label>
           {!isWildcard && (
             <>
-              <div className="h-px bg-zinc-800" />
+              <div className="h-px bg-border" />
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {allAgents.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 cursor-pointer rounded px-1 py-0.5 hover:bg-zinc-800/50">
+                  <label key={a.id} className="flex items-center gap-2 cursor-pointer rounded px-1 py-0.5 hover:bg-muted/50">
                     <input
                       type="checkbox"
                       checked={effectiveIds.includes(a.id)}
                       onChange={() => handleToggle(a.id)}
                       disabled={isSaving}
-                      className="rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
+                      className="rounded border-border bg-muted text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
                     />
-                    <span className="text-sm text-zinc-300">{a.name}</span>
-                    <span className="text-[10px] text-zinc-600 ml-auto">{a.id}</span>
+                    <span className="text-sm text-muted-foreground">{a.name}</span>
+                    <span className="text-[10px] text-muted-foreground/50 ml-auto">{a.id}</span>
                   </label>
                 ))}
               </div>
@@ -211,8 +211,8 @@ export default function AgentDashboardPage({
     return (
       <div className="p-6 space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Skeleton className="h-32 bg-zinc-800 rounded-xl" />
-          <Skeleton className="h-32 bg-zinc-800 rounded-xl" />
+          <Skeleton className="h-32 bg-muted rounded-xl" />
+          <Skeleton className="h-32 bg-muted rounded-xl" />
         </div>
       </div>
     );
@@ -228,16 +228,16 @@ export default function AgentDashboardPage({
 
   return (
     <div className="flex-1 overflow-auto p-6 space-y-6">
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-card border-border">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-zinc-50 text-sm">Description</CardTitle>
+              <CardTitle className="text-foreground text-sm">Description</CardTitle>
               {!isEditingDesc && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsEditingDesc(true)}
-                  className="text-xs text-zinc-400"
+                  className="text-xs text-muted-foreground"
                 >
                   {agent.description ? "Edit" : "Add"}
                 </Button>
@@ -259,7 +259,7 @@ export default function AgentDashboardPage({
                     }
                   }}
                   rows={3}
-                  className="w-full rounded-md bg-zinc-800 px-3 py-2 text-sm text-zinc-100 border border-zinc-700 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-md bg-muted px-3 py-2 text-sm text-foreground border border-border focus:outline-none focus:ring-1 focus:ring-sky-500"
                   placeholder="Who is this agent? What do they do?"
                 />
                 <div className="flex gap-2">
@@ -285,33 +285,33 @@ export default function AgentDashboardPage({
                 </div>
               </div>
             ) : agent.description ? (
-              <p className="text-sm text-zinc-300 whitespace-pre-wrap">{agent.description}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{agent.description}</p>
             ) : (
-              <p className="text-sm text-zinc-600 italic">No description set</p>
+              <p className="text-sm text-muted-foreground/50 italic">No description set</p>
             )}
           </CardContent>
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-zinc-50 text-sm">Channels</CardTitle>
+              <CardTitle className="text-foreground text-sm">Channels</CardTitle>
             </CardHeader>
             <CardContent>
               {agent.channels.length > 0 ? (
                 <div className="space-y-2">
                   {agent.channels.map((ch, idx) => (
-                    <div key={idx} className="flex items-center gap-2 rounded-md bg-zinc-800/50 px-3 py-2">
+                    <div key={idx} className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
                       <div className="flex items-center gap-1.5">
                         <Badge variant="outline" className="text-[10px]">{ch.platform}</Badge>
                         {ch.kind === "channel" && ch.target && (
-                          <span className="text-sm text-zinc-200">{ch.target}</span>
+                          <span className="text-sm text-foreground">{ch.target}</span>
                         )}
                         {ch.kind === "dm" && (
-                          <span className="text-sm text-zinc-400">Direct messages</span>
+                          <span className="text-sm text-muted-foreground">Direct messages</span>
                         )}
                         {ch.kind === "catch-all" && (
-                          <span className="text-sm text-zinc-400">All unmatched messages</span>
+                          <span className="text-sm text-muted-foreground">All unmatched messages</span>
                         )}
                       </div>
                       <div className="ml-auto flex items-center gap-2">
@@ -323,13 +323,13 @@ export default function AgentDashboardPage({
                             {ch.requireMention ? "mention required" : "auto-respond"}
                           </Badge>
                         )}
-                        <span className="text-[10px] text-zinc-600">@{ch.accountId}</span>
+                        <span className="text-[10px] text-muted-foreground/50">@{ch.accountId}</span>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-zinc-600 italic">No channels bound</p>
+                <p className="text-sm text-muted-foreground/50 italic">No channels bound</p>
               )}
             </CardContent>
           </Card>
@@ -354,9 +354,9 @@ export default function AgentDashboardPage({
           />
 
           {agent.config.mentionPatterns.length > 0 && (
-            <Card className="bg-zinc-900 border-zinc-800">
+            <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-zinc-50 text-sm">Mention Patterns</CardTitle>
+                <CardTitle className="text-foreground text-sm">Mention Patterns</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
@@ -368,20 +368,20 @@ export default function AgentDashboardPage({
             </Card>
           )}
 
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-zinc-50 text-sm">Configuration</CardTitle>
+              <CardTitle className="text-foreground text-sm">Configuration</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-500">Model</span>
+                  <span className="text-muted-foreground">Model</span>
                   <div className="flex items-center gap-2">
                     <select
                       value={agent.model}
                       onChange={(e) => handleModelChange(e.target.value)}
                       disabled={isSavingModel || models.length === 0}
-                      className="rounded-md bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-zinc-200 font-mono focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
+                      className="rounded-md bg-muted border border-border px-2 py-1 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
                     >
                       {models.length === 0 && (
                         <option value={agent.model}>{agent.model}</option>
@@ -392,21 +392,21 @@ export default function AgentDashboardPage({
                         </option>
                       ))}
                     </select>
-                    {isSavingModel && <span className="text-[10px] text-zinc-500">Saving...</span>}
+                    {isSavingModel && <span className="text-[10px] text-muted-foreground">Saving...</span>}
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Heartbeat</span>
-                  <span className="text-zinc-200">{agent.config.heartbeat ?? "disabled"}</span>
+                  <span className="text-muted-foreground">Heartbeat</span>
+                  <span className="text-foreground">{agent.config.heartbeat ?? "disabled"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Hooks access</span>
+                  <span className="text-muted-foreground">Hooks access</span>
                   <Badge variant={agent.config.hasHooksAccess ? "default" : "outline"} className="text-[10px]">
                     {agent.config.hasHooksAccess ? "yes" : "no"}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Default agent</span>
+                  <span className="text-muted-foreground">Default agent</span>
                   <Badge variant={agent.isDefault ? "default" : "outline"} className="text-[10px]">
                     {agent.isDefault ? "yes" : "no"}
                   </Badge>

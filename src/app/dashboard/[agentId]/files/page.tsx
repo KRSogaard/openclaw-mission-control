@@ -37,7 +37,7 @@ function FileIcon({ type }: { type: "file" | "directory" }) {
   if (type === "directory") {
     return (
       <svg
-        className="size-4 shrink-0 text-zinc-400"
+        className="size-4 shrink-0 text-muted-foreground"
         fill="none"
         viewBox="0 0 24 24"
         strokeWidth={1.5}
@@ -53,7 +53,7 @@ function FileIcon({ type }: { type: "file" | "directory" }) {
   }
   return (
     <svg
-      className="size-4 shrink-0 text-zinc-500"
+      className="size-4 shrink-0 text-muted-foreground"
       fill="none"
       viewBox="0 0 24 24"
       strokeWidth={1.5}
@@ -302,7 +302,7 @@ export default function AgentWorkspacePage({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center gap-4 border-b border-zinc-800 px-6 py-3">
+      <div className="flex items-center gap-4 border-b border-border px-6 py-3">
         <Breadcrumb>
           <BreadcrumbList>
             {crumbs.map((crumb, i) => {
@@ -330,16 +330,16 @@ export default function AgentWorkspacePage({
           </BreadcrumbList>
         </Breadcrumb>
         {agent && (
-          <span className="ml-auto text-xs text-zinc-500">{agent.name}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{agent.name}</span>
         )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-72 shrink-0 border-r border-zinc-800">
+        <div className="w-72 shrink-0 border-r border-border">
           <ScrollArea className="h-full">
             <div className="p-2">
               <div className="mb-1 flex items-center justify-between px-2">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
                   Files
                 </span>
                 <button
@@ -347,7 +347,7 @@ export default function AgentWorkspacePage({
                     setIsCreating(true);
                     setNewFileName("");
                   }}
-                  className="rounded p-0.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+                  className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <svg
                     className="size-3.5"
@@ -387,18 +387,18 @@ export default function AgentWorkspacePage({
                       }
                     }}
                     placeholder="filename.ext"
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-300 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                    className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-ring"
                   />
                 </div>
               )}
               {loadingFiles ? (
                 <div className="space-y-1 p-2">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <Skeleton key={i} className="h-7 w-full bg-zinc-800" />
+                    <Skeleton key={i} className="h-7 w-full bg-muted" />
                   ))}
                 </div>
               ) : files.length === 0 && !isCreating ? (
-                <p className="p-4 text-sm text-zinc-500">Empty directory</p>
+                <p className="p-4 text-sm text-muted-foreground">Empty directory</p>
               ) : (
                 files.map((entry) => (
                   <div
@@ -407,16 +407,16 @@ export default function AgentWorkspacePage({
                   >
                     <button
                       onClick={() => handleEntryClick(entry)}
-                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-zinc-800 ${
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted ${
                         selectedFile?.path === entry.path
-                          ? "bg-zinc-800 text-zinc-50"
-                          : "text-zinc-300"
+                          ? "bg-muted text-foreground"
+                          : "text-muted-foreground"
                       }`}
                     >
                       <FileIcon type={entry.type} />
                       <span className="truncate">{entry.name}</span>
                       {entry.type === "file" && (
-                        <span className="ml-auto shrink-0 text-[10px] text-zinc-600 group-hover/entry:hidden">
+                        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/50 group-hover/entry:hidden">
                           {formatSize(entry.size)}
                         </span>
                       )}
@@ -426,7 +426,7 @@ export default function AgentWorkspacePage({
                         e.stopPropagation();
                         deleteEntry(entry);
                       }}
-                      className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded p-0.5 text-zinc-600 transition-colors hover:text-red-400 group-hover/entry:block"
+                      className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-red-400 group-hover/entry:block"
                     >
                       <svg
                         className="size-3.5"
@@ -452,24 +452,24 @@ export default function AgentWorkspacePage({
         <div className="flex flex-1 flex-col overflow-hidden">
           {loadingContent ? (
             <div className="space-y-2 p-6">
-              <Skeleton className="h-4 w-48 bg-zinc-800" />
-              <Skeleton className="h-4 w-full bg-zinc-800" />
-              <Skeleton className="h-4 w-3/4 bg-zinc-800" />
-              <Skeleton className="h-4 w-5/6 bg-zinc-800" />
-              <Skeleton className="h-4 w-2/3 bg-zinc-800" />
+              <Skeleton className="h-4 w-48 bg-muted" />
+              <Skeleton className="h-4 w-full bg-muted" />
+              <Skeleton className="h-4 w-3/4 bg-muted" />
+              <Skeleton className="h-4 w-5/6 bg-muted" />
+              <Skeleton className="h-4 w-2/3 bg-muted" />
             </div>
           ) : selectedFile ? (
             <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
+              <div className="flex items-center justify-between border-b border-border px-4 py-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-zinc-400">
+                  <span className="text-sm text-muted-foreground">
                     {selectedFile.path}
                   </span>
                   {!isEditing && (
                     <Button
                       variant="ghost"
                       size="xs"
-                      className="text-zinc-500 hover:text-zinc-300"
+                      className="text-muted-foreground hover:text-foreground"
                       onClick={() => {
                         setEditContent(selectedFile.content);
                         setIsEditing(true);
@@ -492,7 +492,7 @@ export default function AgentWorkspacePage({
                     </Button>
                   )}
                 </div>
-                <span className="text-xs text-zinc-600">
+                <span className="text-xs text-muted-foreground/50">
                   {formatSize(selectedFile.size)}
                   {selectedFile.language && ` \u00b7 ${selectedFile.language}`}
                 </span>
@@ -500,7 +500,7 @@ export default function AgentWorkspacePage({
               {isEditing ? (
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <textarea
-                    className="flex-1 resize-none bg-zinc-950 p-4 font-mono text-sm leading-6 text-zinc-300 outline-none"
+                    className="flex-1 resize-none bg-background p-4 font-mono text-sm leading-6 text-foreground outline-none"
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                     onKeyDown={(e) => {
@@ -515,7 +515,7 @@ export default function AgentWorkspacePage({
                     }}
                     spellCheck={false}
                   />
-                  <div className="flex items-center gap-2 border-t border-zinc-800 px-4 py-2">
+                  <div className="flex items-center gap-2 border-t border-border px-4 py-2">
                     <Button
                       size="sm"
                       className="bg-sky-600 text-white hover:bg-sky-500"
@@ -534,7 +534,7 @@ export default function AgentWorkspacePage({
                     >
                       Cancel
                     </Button>
-                    <span className="ml-auto text-xs text-zinc-600">
+                    <span className="ml-auto text-xs text-muted-foreground/50">
                       Ctrl+S to save \u00b7 Esc to cancel
                     </span>
                   </div>
@@ -546,12 +546,12 @@ export default function AgentWorkspacePage({
                       {selectedFile.content.split("\n").map((line, i) => (
                         <div
                           key={i}
-                          className="flex hover:bg-zinc-900/50"
+                          className="flex hover:bg-muted/50"
                         >
-                          <span className="inline-block w-12 shrink-0 select-none pr-4 text-right font-mono text-xs leading-6 text-zinc-600">
+                          <span className="inline-block w-12 shrink-0 select-none pr-4 text-right font-mono text-xs leading-6 text-muted-foreground/50">
                             {i + 1}
                           </span>
-                          <span className="flex-1 whitespace-pre-wrap break-all font-mono text-zinc-300">
+                          <span className="flex-1 whitespace-pre-wrap break-all font-mono text-foreground">
                             {line}
                           </span>
                         </div>
@@ -563,7 +563,7 @@ export default function AgentWorkspacePage({
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-sm text-zinc-600">
+              <p className="text-sm text-muted-foreground/50">
                 Select a file to view its contents
               </p>
             </div>

@@ -46,13 +46,13 @@ export default function DashboardPage() {
         <h2 className="mb-6 text-xl font-semibold">Agents</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="bg-zinc-900 border-zinc-800">
+            <Card key={i} className="bg-card border-border">
               <CardHeader>
-                <Skeleton className="h-5 w-32 bg-zinc-800" />
-                <Skeleton className="h-4 w-20 bg-zinc-800" />
+                <Skeleton className="h-5 w-32 bg-muted" />
+                <Skeleton className="h-4 w-20 bg-muted" />
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-4 w-full bg-zinc-800" />
+                <Skeleton className="h-4 w-full bg-muted" />
               </CardContent>
             </Card>
           ))}
@@ -72,7 +72,7 @@ export default function DashboardPage() {
   if (agents.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
-        <p className="text-zinc-500">No agents configured</p>
+        <p className="text-muted-foreground">No agents configured</p>
       </div>
     );
   }
@@ -83,10 +83,10 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {agents.map((agent) => (
           <Link key={agent.id} href={`/dashboard/${agent.id}`}>
-            <Card className="bg-zinc-900 border-zinc-800 transition-colors hover:bg-zinc-800/80 cursor-pointer">
+            <Card className="bg-card border-border transition-colors hover:bg-muted cursor-pointer">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-zinc-50">{agent.name}</CardTitle>
+                  <CardTitle className="text-foreground">{agent.name}</CardTitle>
                   {agent.isDefault && (
                     <Badge variant="secondary" className="text-xs">
                       default
@@ -101,7 +101,7 @@ export default function DashboardPage() {
               </CardHeader>
                <CardContent className="space-y-2">
                  {agent.description && (
-                   <p className="text-xs text-zinc-400">{agent.description}</p>
+                    <p className="text-xs text-muted-foreground">{agent.description}</p>
                  )}
                  {agent.channels.length > 0 && (
                    <div className="flex flex-wrap gap-1">

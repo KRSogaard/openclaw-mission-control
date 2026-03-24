@@ -28,8 +28,8 @@ const COLUMNS: {
   {
     key: "queued",
     label: "To-Do",
-    accent: "border-l-zinc-500",
-    dot: "bg-zinc-500",
+    accent: "border-l-muted-foreground",
+    dot: "bg-muted-foreground",
     statuses: ["queued"],
   },
   {
@@ -60,7 +60,7 @@ const STATUS_BADGE: Record<string, string> = {
   running: "bg-sky-600",
   completed: "bg-emerald-600",
   failed: "bg-red-600",
-  cancelled: "bg-zinc-700 text-zinc-400",
+  cancelled: "bg-muted text-muted-foreground",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -197,25 +197,25 @@ function TaskCard({
       className={[
         "cursor-pointer rounded-lg border p-3 transition-colors",
         isSelected
-          ? "bg-zinc-800 border-zinc-600"
-          : "bg-zinc-900 border-zinc-800 hover:bg-zinc-800/80",
+          ? "bg-muted border-border"
+          : "bg-card border-border hover:bg-muted",
       ].join(" ")}
     >
-      <h4 className="text-sm font-medium text-zinc-100 truncate">
+      <h4 className="text-sm font-medium text-foreground truncate">
         {task.title}
       </h4>
       {task.statusMessage && (
-        <p className="mt-1 text-xs text-zinc-400 truncate">
+        <p className="mt-1 text-xs text-muted-foreground truncate">
           {task.statusMessage}
         </p>
       )}
       <div className="mt-2 flex items-center gap-1.5">
         {task.createdBy && (
-          <span className="text-[10px] text-zinc-600 truncate">
+          <span className="text-[10px] text-muted-foreground/50 truncate">
             {task.createdBy}
           </span>
         )}
-        <span className="text-[10px] text-zinc-600 ml-auto shrink-0">
+        <span className="text-[10px] text-muted-foreground/50 ml-auto shrink-0">
           {fmtDate(task.createdAt)}
         </span>
         {task.retryCount > 0 && (
@@ -273,7 +273,7 @@ function InlineCreateForm({
   }
 
   return (
-    <div className="rounded-lg border border-sky-800/40 bg-zinc-900 p-3 space-y-2">
+    <div className="rounded-lg border border-sky-800/40 bg-card p-3 space-y-2">
       <input
         ref={inputRef}
         value={title}
@@ -283,7 +283,7 @@ function InlineCreateForm({
           if (e.key === "Escape") onCancel();
         }}
         placeholder="Task title"
-        className="w-full rounded bg-zinc-800 border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-sky-500"
+        className="w-full rounded bg-muted border border-border px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-sky-500"
       />
       <textarea
         value={desc}
@@ -294,7 +294,7 @@ function InlineCreateForm({
         }}
         placeholder="Description (optional)"
         rows={2}
-        className="w-full rounded bg-zinc-800 border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-sky-500 resize-none"
+        className="w-full rounded bg-muted border border-border px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-sky-500 resize-none"
       />
       <div className="flex gap-2">
         <Button
@@ -371,12 +371,12 @@ function DetailPanel({
   const isActive = task.status === "queued" || task.status === "running";
 
   return (
-    <div className="w-96 shrink-0 border-l border-zinc-800 bg-zinc-950 flex flex-col overflow-hidden">
+    <div className="w-96 shrink-0 border-l border-border bg-background flex flex-col overflow-hidden">
       <ScrollArea className="flex-1 min-h-0">
         {/* ---- Header ---- */}
         <div className="p-4 flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium text-zinc-100">{task.title}</h3>
+            <h3 className="text-sm font-medium text-foreground">{task.title}</h3>
             <Badge
               className={`mt-1.5 text-[10px] ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
             >
@@ -385,66 +385,66 @@ function DetailPanel({
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded hover:bg-zinc-800"
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted"
           >
             <IconX />
           </button>
         </div>
 
-        <Separator className="bg-zinc-800" />
+        <Separator className="bg-border" />
 
         {/* ---- Description ---- */}
         {task.description && (
           <>
             <div className="p-4">
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
                 Description
               </p>
-              <p className="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                 {task.description}
               </p>
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-border" />
           </>
         )}
 
         {/* ---- Metadata ---- */}
         <div className="p-4">
-          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
             Details
           </p>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
             {task.createdBy && (
               <>
-                <span className="text-zinc-500">Created by</span>
-                <span className="text-zinc-300">{task.createdBy}</span>
+                <span className="text-muted-foreground">Created by</span>
+                <span className="text-foreground">{task.createdBy}</span>
               </>
             )}
-            <span className="text-zinc-500">Created</span>
-            <span className="text-zinc-300">{fmtDate(task.createdAt)}</span>
-            <span className="text-zinc-500">Updated</span>
-            <span className="text-zinc-300">{fmtDate(task.updatedAt)}</span>
-            <span className="text-zinc-500">Retries</span>
-            <span className="text-zinc-300">{task.retryCount}</span>
+            <span className="text-muted-foreground">Created</span>
+            <span className="text-foreground">{fmtDate(task.createdAt)}</span>
+            <span className="text-muted-foreground">Updated</span>
+            <span className="text-foreground">{fmtDate(task.updatedAt)}</span>
+            <span className="text-muted-foreground">Retries</span>
+            <span className="text-foreground">{task.retryCount}</span>
           </div>
         </div>
 
-        <Separator className="bg-zinc-800" />
+        <Separator className="bg-border" />
 
         {/* ---- Response ---- */}
         {task.response && (
           <>
             <div className="p-4">
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
                 Response
               </p>
-              <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3">
-                <p className="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
+              <div className="rounded-lg bg-card border border-border p-3">
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                   {task.response}
                 </p>
               </div>
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-border" />
           </>
         )}
 
@@ -463,24 +463,24 @@ function DetailPanel({
                 Cancel task
               </Button>
             </div>
-            <Separator className="bg-zinc-800" />
+            <Separator className="bg-border" />
           </>
         )}
 
         {/* ---- Audit log ---- */}
         <div className="p-4 pb-6">
-          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
             Audit Log
           </p>
 
           {loadingEvents ? (
             <div className="space-y-3">
-              <Skeleton className="h-5 w-3/4 bg-zinc-800 rounded" />
-              <Skeleton className="h-5 w-1/2 bg-zinc-800 rounded" />
-              <Skeleton className="h-5 w-2/3 bg-zinc-800 rounded" />
+              <Skeleton className="h-5 w-3/4 bg-muted rounded" />
+              <Skeleton className="h-5 w-1/2 bg-muted rounded" />
+              <Skeleton className="h-5 w-2/3 bg-muted rounded" />
             </div>
           ) : events.length === 0 ? (
-            <p className="text-xs text-zinc-600">No events recorded</p>
+            <p className="text-xs text-muted-foreground/50">No events recorded</p>
           ) : (
             <div>
               {events.map((ev, idx) => (
@@ -491,26 +491,26 @@ function DetailPanel({
                       className={`w-2 h-2 rounded-full shrink-0 mt-1 ${EVENT_DOT[ev.event] ?? "bg-zinc-500"}`}
                     />
                     {idx < events.length - 1 && (
-                      <div className="w-px flex-1 bg-zinc-800 mt-1" />
+                      <div className="w-px flex-1 bg-border mt-1" />
                     )}
                   </div>
                   {/* Event content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-xs font-medium text-zinc-300">
+                      <span className="text-xs font-medium text-foreground">
                         {ev.event.replace(/_/g, " ")}
                       </span>
-                      <span className="text-[10px] text-zinc-600 ml-auto shrink-0">
+                      <span className="text-[10px] text-muted-foreground/50 ml-auto shrink-0">
                         {fmtTime(ev.timestamp)}
                       </span>
                     </div>
                     {ev.message && (
-                      <p className="mt-0.5 text-[11px] text-zinc-400 leading-relaxed">
+                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
                         {ev.message}
                       </p>
                     )}
                     {ev.actor && (
-                      <p className="mt-0.5 text-[10px] text-zinc-600">
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/50">
                         {ev.actor}
                       </p>
                     )}
@@ -563,29 +563,29 @@ function SettingsCard({
   }
 
   return (
-    <Card className="bg-zinc-900 border-zinc-800">
+    <Card className="bg-card border-border">
       <CardContent className="p-4 space-y-3">
-        <p className="text-xs font-medium text-zinc-300">Task Settings</p>
+        <p className="text-xs font-medium text-foreground">Task Settings</p>
         <div className="flex items-center gap-3">
-          <label className="text-xs text-zinc-400 w-24">Timeout</label>
+          <label className="text-xs text-muted-foreground w-24">Timeout</label>
           <input
             type="number"
             value={timeout}
             onChange={(e) => setTimeoutVal(parseInt(e.target.value) || 30)}
             min={1}
-            className="w-20 rounded bg-zinc-800 border border-zinc-700 px-2 py-1 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-20 rounded bg-muted border border-border px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
-          <span className="text-[10px] text-zinc-500">min</span>
+          <span className="text-[10px] text-muted-foreground">min</span>
         </div>
         <div className="flex items-center gap-3">
-          <label className="text-xs text-zinc-400 w-24">Max retries</label>
+          <label className="text-xs text-muted-foreground w-24">Max retries</label>
           <input
             type="number"
             value={retries}
             onChange={(e) => setRetries(parseInt(e.target.value) || 3)}
             min={0}
             max={10}
-            className="w-20 rounded bg-zinc-800 border border-zinc-700 px-2 py-1 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-20 rounded bg-muted border border-border px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </div>
         <div className="flex gap-2">
@@ -700,13 +700,13 @@ export default function TasksPage({
   if (loading) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden p-6 gap-4">
-        <Skeleton className="h-8 w-48 bg-zinc-800 rounded-lg shrink-0" />
+        <Skeleton className="h-8 w-48 bg-muted rounded-lg shrink-0" />
         <div className="flex-1 flex gap-3 min-h-0">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex-1 space-y-3">
-              <Skeleton className="h-9 w-full bg-zinc-800/60 rounded-lg" />
-              <Skeleton className="h-20 w-full bg-zinc-800/40 rounded-lg" />
-              <Skeleton className="h-20 w-full bg-zinc-800/40 rounded-lg" />
+              <Skeleton className="h-9 w-full bg-muted/60 rounded-lg" />
+              <Skeleton className="h-20 w-full bg-muted/40 rounded-lg" />
+              <Skeleton className="h-20 w-full bg-muted/40 rounded-lg" />
             </div>
           ))}
         </div>
@@ -718,11 +718,11 @@ export default function TasksPage({
   if (tasks.length === 0 && !showCreate) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-zinc-800/80 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
           <IconBoard />
         </div>
-        <p className="text-sm text-zinc-500">No tasks yet</p>
-        <p className="text-xs text-zinc-600">
+        <p className="text-sm text-muted-foreground">No tasks yet</p>
+        <p className="text-xs text-muted-foreground/50">
           Create a task to send work to this agent
         </p>
         <Button
@@ -740,11 +740,11 @@ export default function TasksPage({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
-      <div className="px-5 py-2.5 flex items-center justify-between shrink-0 border-b border-zinc-800/50">
-        <h3 className="text-sm font-medium text-zinc-300">
+      <div className="px-5 py-2.5 flex items-center justify-between shrink-0 border-b border-border">
+        <h3 className="text-sm font-medium text-muted-foreground">
           Tasks
           {tasks.length > 0 && (
-            <span className="ml-2 text-xs text-zinc-600">{tasks.length}</span>
+            <span className="ml-2 text-xs text-muted-foreground/50">{tasks.length}</span>
           )}
         </h3>
         <button
@@ -752,8 +752,8 @@ export default function TasksPage({
           className={[
             "p-1.5 rounded transition-colors",
             showSettings
-              ? "text-zinc-300 bg-zinc-800"
-              : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60",
+              ? "text-foreground bg-muted"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted",
           ].join(" ")}
           title="Task settings"
         >
@@ -791,24 +791,24 @@ export default function TasksPage({
             return (
               <div
                 key={col.key}
-                className="flex-1 min-w-[220px] flex flex-col rounded-lg bg-zinc-900/30 overflow-hidden"
+                className="flex-1 min-w-[220px] flex flex-col rounded-lg bg-muted/30 overflow-hidden"
               >
                 {/* Column header */}
                 <div
                   className={`px-3 py-2.5 flex items-center gap-2 border-l-2 ${col.accent} shrink-0`}
                 >
-                  <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-medium">
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
                     {col.label}
                   </span>
                   {colTasks.length > 0 && (
-                    <Badge className="text-[10px] bg-zinc-800 text-zinc-400 h-4 px-1.5 border-transparent">
+                    <Badge className="text-[10px] bg-muted text-muted-foreground h-4 px-1.5 border-transparent">
                       {colTasks.length}
                     </Badge>
                   )}
                   {isTodo && (
                     <button
                       onClick={() => setShowCreate((v) => !v)}
-                      className="ml-auto text-zinc-600 hover:text-zinc-300 transition-colors p-0.5 rounded hover:bg-zinc-800/60"
+                      className="ml-auto text-muted-foreground/50 hover:text-foreground transition-colors p-0.5 rounded hover:bg-muted"
                       title="New task"
                     >
                       <IconPlus />
@@ -841,7 +841,7 @@ export default function TasksPage({
                     ))}
 
                     {colTasks.length === 0 && !(isTodo && showCreate) && (
-                      <p className="text-[11px] text-zinc-700 text-center py-8">
+                      <p className="text-[11px] text-muted-foreground/40 text-center py-8">
                         No tasks
                       </p>
                     )}

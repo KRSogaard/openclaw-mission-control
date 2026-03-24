@@ -44,7 +44,7 @@ export default function AgentLayout({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-col border-b border-zinc-800">
+      <div className="flex flex-col border-b border-border">
         <div className="flex items-center gap-4 px-6 py-3">
           <Link href="/dashboard">
             <Button variant="ghost" size="sm">
@@ -66,10 +66,10 @@ export default function AgentLayout({
           </Link>
           <Separator orientation="vertical" className="h-5" />
           {loading ? (
-            <Skeleton className="h-5 w-32 bg-zinc-800" />
+            <Skeleton className="h-5 w-32 bg-muted" />
           ) : (
             <>
-              <h2 className="text-sm font-medium text-zinc-300">
+              <h2 className="text-sm font-medium text-muted-foreground">
                 {agent?.name ?? agentId}
               </h2>
               {agent?.isDefault && (
@@ -96,8 +96,8 @@ export default function AgentLayout({
                 className={[
                   "border-b-2 px-4 py-2 text-sm transition-colors",
                   isActive
-                    ? "border-sky-500 text-zinc-50"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300",
+                    ? "border-sky-500 text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
                 ].join(" ")}
               >
                 {tab.label}
