@@ -620,8 +620,8 @@ export default function AgentWorkspacePage({
                   <ScrollArea className="flex-1">
                     <div className="flex min-h-full">
                       <div
-                        className="shrink-0 select-none border-r border-border bg-muted/30 py-4 text-right font-mono text-xs leading-6 text-muted-foreground/30"
-                        style={{ width: "3rem", paddingRight: "0.75rem" }}
+                        className="shrink-0 select-none border-r border-border bg-muted/30 text-right font-mono text-xs leading-6 text-muted-foreground/30"
+                        style={{ width: "3rem", paddingRight: "0.75rem", paddingTop: "16px", paddingBottom: "16px" }}
                         aria-hidden
                       >
                         {editContent.split("\n").map((_, i) => (
@@ -633,7 +633,7 @@ export default function AgentWorkspacePage({
                         onValueChange={setEditContent}
                         highlight={highlightCode}
                         padding={16}
-                        className="min-h-full flex-1 font-mono text-sm leading-6 [&_textarea]:outline-none"
+                        className="shiki min-h-full flex-1 font-mono text-sm leading-6 [&_textarea]:outline-none [&_textarea]:!text-transparent"
                         style={{ fontFamily: "var(--font-geist-mono), monospace" }}
                       />
                     </div>
