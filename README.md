@@ -52,6 +52,48 @@ Agents can also create tasks for other agents. If your orchestrator agent decide
 
 Every state change is logged — created, dispatched, progress updates, retries, completions, failures. Click any task card on the Kanban board to see the full audit trail.
 
+### Task system requirements
+
+For agents to report task status back, they need to be able to run `curl` commands via the `exec` tool. Two things to check in your OpenClaw config:
+
+**1. The `exec` tool must be enabled.** In `~/.openclaw/openclaw.json`, make sure `exec` is in the allowed tools list:
+
+```json
+{
+  "tools": {
+    "allow": ["exec", "read", "write", ...]
+  }
+}
+```
+
+**2. Exec commands must be auto-approved.** By default, OpenClaw prompts for approval on every shell command. For task callbacks to work without manual intervention, set auto-approve in `~/.openclaw/exec-approvals.json`:
+
+```json
+{
+  "defaults": {
+    "policy": "allow",
+    "ask": "never"
+  }
+}
+```
+
+To auto-approve only specific agents:
+
+```json
+{
+  "agents": {
+    "your-agent-id": {
+      "policy": "allow",
+      "ask": "never"
+    }
+  }
+}
+```
+
+Restart the OpenClaw gateway after changing exec approvals.
+
+Without this, agents will receive tasks but won't be able to call back to Mission Control — every `curl` will hang waiting for manual approval in the OpenClaw terminal.
+
 ## Design philosophy
 
 Mission Control is a **decorator, not a replacement**. OpenClaw owns your agents, config, and runtime. We just give you a window into it.
