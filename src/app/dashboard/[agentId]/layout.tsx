@@ -40,6 +40,7 @@ export default function AgentLayout({
     { label: "Overview", href: `/dashboard/${agentId}` },
     { label: "Tasks", href: `/dashboard/${agentId}/tasks` },
     { label: "Files", href: `/dashboard/${agentId}/files` },
+    { label: "Settings", href: `/dashboard/${agentId}/settings` },
   ];
 
   return (
