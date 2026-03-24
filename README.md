@@ -85,14 +85,15 @@ Browser  →  Next.js API routes  →  OpenClaw gateway (WebSocket)
 
 ### Task System
 
-Tasks dispatch to agents via `chat.send` through the gateway WebSocket. Each agent has its own queue — one task at a time.
+You give an agent a task. Mission Control sends it as a message through the OpenClaw gateway — the same way any conversation reaches an agent. The agent does the work, and when it's done, it tells Mission Control by calling a tool.
 
-1. Operator creates task → queued in SQLite → dispatched via `chat.send`
-2. Agent works → calls `task.complete` or `task.update` via exec/curl back to Mission Control
-3. On completion → next queued task auto-dispatches
-4. On timeout → retry with check-in → fail after max retries
+Each agent has its own queue. If you assign three tasks, the agent gets them one at a time. When one finishes, the next one starts automatically.
 
-Tool definitions are appended to each agent's `TOOLS.md` between `<!-- BEGIN:MC_TOOLS -->` / `<!-- END:MC_TOOLS -->` markers. A hooks auth token is auto-generated at `~/.openclaw/credentials/mc-hooks-token` on first startup.
+If an agent goes quiet, Mission Control checks in: "Hey, are you done with this?" If the agent still doesn't respond after a few retries, the task is marked as failed. Timeouts and retry counts are configurable per agent.
+
+Agents can also create tasks for other agents. If Heimdall decides Mímir needs to research something, it assigns the task through Mission Control, and Mímir picks it up from its own queue.
+
+**How agents know about the tools:** On startup, Mission Control appends a small section to each agent's `TOOLS.md` with instructions for reporting task status. This section is versioned — if the tools change, the next sync updates every agent automatically.
 
 ## API Reference
 
