@@ -34,6 +34,29 @@ import Editor from "react-simple-code-editor";
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+function addLineNumbers(html: string): string {
+  const lineRegex = /<span class="line">/g;
+  let lineNum = 0;
+  return html.replace(lineRegex, () => {
+    lineNum++;
+    return `<span class="line"><span class="line-number">${lineNum}</span>`;
+  });
+}
+
+function wrapPlainWithLineNumbers(content: string): string {
+  const lines = content.split("\n").map((line, i) =>
+    `<span class="line"><span class="line-number">${i + 1}</span>${escapeHtml(line)}</span>`
+  ).join("\n");
+  return `<pre class="shiki"><code>${lines}</code></pre>`;
+}
+
+function addLineNumbersToEditorHtml(html: string): string {
+  const lines = html.split("\n");
+  return lines.map((line, i) =>
+    `<span class="editor-line-number">${i + 1}</span>${line}`
+  ).join("\n");
+}
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -131,21 +154,20 @@ export default function AgentWorkspacePage({
   }, []);
 
   useEffect(() => {
-    if (!selectedFile?.content || !selectedFile.language) {
-      setHighlightedHtml(null);
-      return;
-    }
+    setHighlightedHtml(null);
+    if (!selectedFile?.content) return;
     let cancelled = false;
     getHighlighter().then((h) => {
       if (cancelled) return;
       try {
+        const lang = selectedFile.language ?? "text";
         const html = h.codeToHtml(selectedFile.content, {
-          lang: selectedFile.language ?? "text",
+          lang,
           themes: { dark: "github-dark", light: "github-light" },
         });
-        setHighlightedHtml(html);
+        setHighlightedHtml(addLineNumbers(html));
       } catch {
-        setHighlightedHtml(null);
+        setHighlightedHtml(wrapPlainWithLineNumbers(selectedFile.content));
       }
     });
     return () => { cancelled = true; };
@@ -154,16 +176,16 @@ export default function AgentWorkspacePage({
   const highlightCode = useCallback((code: string): string => {
     const h = highlighterRef.current;
     const lang = selectedFile?.language;
-    if (!h || !lang) return escapeHtml(code);
+    if (!h || !lang) return addLineNumbersToEditorHtml(escapeHtml(code));
     try {
       const html = h.codeToHtml(code, {
         lang,
         themes: { dark: "github-dark", light: "github-light" },
       });
       const inner = html.replace(/^<pre[^>]*><code[^>]*>/, "").replace(/<\/code><\/pre>$/, "");
-      return inner;
+      return addLineNumbersToEditorHtml(inner);
     } catch {
-      return escapeHtml(code);
+      return addLineNumbersToEditorHtml(escapeHtml(code));
     }
   }, [selectedFile?.language]);
 
@@ -649,27 +671,17 @@ export default function AgentWorkspacePage({
                 <ScrollArea className="flex-1">
                   {highlightedHtml ? (
                     <div
-                      className="shiki-wrapper text-sm [&_pre]:!bg-transparent [&_pre]:p-4 [&_code]:font-mono [&_.line]:leading-6"
+                      className="shiki-wrapper text-sm [&_pre]:!bg-transparent [&_pre]:p-4 [&_code]:font-mono [&_.line]:leading-6 [&_.line]:flex [&_.line-number]:inline-block [&_.line-number]:w-12 [&_.line-number]:shrink-0 [&_.line-number]:select-none [&_.line-number]:pr-4 [&_.line-number]:text-right [&_.line-number]:text-xs [&_.line-number]:text-muted-foreground/50"
                       dangerouslySetInnerHTML={{ __html: highlightedHtml }}
                     />
                   ) : (
-                    <pre className="p-0 text-sm leading-6">
-                      <code>
-                        {selectedFile.content.split("\n").map((line, i) => (
-                          <div
-                            key={i}
-                            className="flex hover:bg-muted/50"
-                          >
-                            <span className="inline-block w-12 shrink-0 select-none pr-4 text-right font-mono text-xs leading-6 text-muted-foreground/50">
-                              {i + 1}
-                            </span>
-                            <span className="flex-1 whitespace-pre-wrap break-all font-mono text-foreground">
-                              {line}
-                            </span>
-                          </div>
-                        ))}
-                      </code>
-                    </pre>
+                    <div className="space-y-2 p-4">
+                      <Skeleton className="h-4 w-3/4 bg-muted" />
+                      <Skeleton className="h-4 w-full bg-muted" />
+                      <Skeleton className="h-4 w-5/6 bg-muted" />
+                      <Skeleton className="h-4 w-2/3 bg-muted" />
+                      <Skeleton className="h-4 w-4/5 bg-muted" />
+                    </div>
                   )}
                 </ScrollArea>
               )}
