@@ -35,6 +35,12 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function extractLines(shikiHtml: string): string[] {
+  const codeMatch = shikiHtml.match(/<code[^>]*>([\s\S]*?)<\/code>/);
+  if (!codeMatch) return [];
+  return codeMatch[1].split(/\n/).filter((l) => l.includes("class=\"line\""));
+}
+
 
 import {
   Breadcrumb,
@@ -659,20 +665,18 @@ export default function AgentWorkspacePage({
               ) : (
                 <ScrollArea className="flex-1">
                   {highlightedHtml ? (
-                    <div className="flex min-h-full">
-                      <div
-                        className="shrink-0 select-none border-r border-border bg-muted/30 py-4 text-right font-mono text-xs leading-6 text-muted-foreground/40"
-                        style={{ width: "3rem", paddingRight: "0.75rem" }}
-                        aria-hidden
-                      >
-                        {selectedFile.content.split("\n").map((_, i) => (
-                          <div key={i}>{i + 1}</div>
-                        ))}
-                      </div>
-                      <div
-                        className="min-w-0 flex-1 overflow-hidden text-sm [&_pre]:!bg-transparent [&_pre]:!m-0 [&_pre]:p-4 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:font-mono [&_.line]:leading-6"
-                        dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-                      />
+                    <div className="p-4 font-mono text-sm">
+                      {extractLines(highlightedHtml).map((lineHtml, i) => (
+                        <div key={i} className="flex hover:bg-muted/30">
+                          <span className="inline-block w-10 shrink-0 select-none pr-3 text-right text-xs leading-6 text-muted-foreground/40">
+                            {i + 1}
+                          </span>
+                          <span
+                            className="min-w-0 flex-1 whitespace-pre-wrap break-words leading-6"
+                            dangerouslySetInnerHTML={{ __html: lineHtml }}
+                          />
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="space-y-2 p-4">
