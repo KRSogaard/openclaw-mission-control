@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from "react";
 import Link from "next/link";
-import type { AgentTask, TaskEvent, ApiResponse } from "@/lib/types";
+import type { AgentTask, AgentTaskSettings, TaskEvent, ApiResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -13,6 +13,7 @@ type ChatMessage = {
   text: string;
   toolUse?: Array<{ tool: string; input: string }>;
   toolError?: string;
+  timestamp?: number;
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -58,20 +59,24 @@ export default function TaskDetailPage({
   const [task, setTask] = useState<AgentTask | null>(null);
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [settings, setSettings] = useState<AgentTaskSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [chatLoading, setChatLoading] = useState(true);
   const [acting, setActing] = useState(false);
 
   const fetchTask = useCallback(async () => {
     try {
-      const [taskRes, eventsRes] = await Promise.all([
+      const [taskRes, eventsRes, settingsRes] = await Promise.all([
         fetch(`/api/agents/${agentId}/tasks/${taskId}`),
         fetch(`/api/agents/${agentId}/tasks/${taskId}/events`),
+        fetch(`/api/agents/${agentId}/task-settings`),
       ]);
       const taskJson = (await taskRes.json()) as ApiResponse<AgentTask>;
       const eventsJson = (await eventsRes.json()) as ApiResponse<TaskEvent[]>;
+      const settingsJson = (await settingsRes.json()) as ApiResponse<AgentTaskSettings>;
       if (taskJson.data) setTask(taskJson.data);
       if (eventsJson.data) setEvents(eventsJson.data);
+      if (settingsJson.data) setSettings(settingsJson.data);
     } finally {
       setLoading(false);
     }
@@ -98,6 +103,21 @@ export default function TaskDetailPage({
     const interval = setInterval(() => { fetchTask(); fetchChat(); }, 5000);
     return () => clearInterval(interval);
   }, [task?.status, fetchTask, fetchChat]);
+
+  async function handleCheckIn() {
+    setActing(true);
+    try {
+      await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check-in" }),
+      });
+      await fetchTask();
+      await fetchChat();
+    } finally {
+      setActing(false);
+    }
+  }
 
   async function handleRetry() {
     setActing(true);
@@ -182,15 +202,28 @@ export default function TaskDetailPage({
             {task.status}
           </Badge>
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span>Created {formatTime(task.createdAt)}</span>
           {task.createdBy && <span>by {task.createdBy}</span>}
           <span>Updated {formatRelative(task.updatedAt)}</span>
-          {task.retryCount > 0 && <span>{task.retryCount} retries</span>}
+          {task.retryCount > 0 && settings && (
+            <Badge variant="outline" className="text-xs">
+              {task.retryCount} / {settings.maxRetries} retries
+              {task.retryCount >= settings.maxRetries ? " (max reached)" : ` (${settings.maxRetries - task.retryCount} left)`}
+            </Badge>
+          )}
+          {task.retryCount === 0 && settings && isActive && (
+            <span className="text-muted-foreground/50">{settings.maxRetries} retries available &middot; {settings.timeoutMinutes}m timeout</span>
+          )}
         </div>
       </div>
 
       <div className="flex gap-2">
+        {task.status === "running" && (
+          <Button size="sm" variant="outline" onClick={handleCheckIn} disabled={acting}>
+            Check in
+          </Button>
+        )}
         {isDone && (
           <Button size="sm" variant="outline" onClick={handleRetry} disabled={acting}>
             Retry
@@ -234,6 +267,36 @@ export default function TaskDetailPage({
 
       <Card className="bg-card border-border">
         <CardHeader>
+          <CardTitle className="text-sm text-foreground">Audit Log</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No events recorded</p>
+          ) : (
+            <div className="relative pl-6 space-y-3">
+              <div className="absolute left-[9px] top-1 bottom-1 w-px bg-border" />
+              {events.map((event) => (
+                <div key={event.id} className="relative flex items-start gap-3">
+                  <div className={`absolute left-[-15px] top-1.5 size-2.5 rounded-full ${EVENT_DOT[event.event] ?? "bg-zinc-500"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{event.event}</span>
+                      {event.actor && <span className="text-xs text-muted-foreground">{event.actor}</span>}
+                      <span className="ml-auto text-xs text-muted-foreground shrink-0">{formatTime(event.timestamp)}</span>
+                    </div>
+                    {event.message && (
+                      <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{event.message}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
           <CardTitle className="text-sm text-foreground">Conversation</CardTitle>
         </CardHeader>
         <CardContent>
@@ -263,6 +326,9 @@ export default function TaskDetailPage({
                     {msg.toolError && (
                       <Badge className="bg-red-900/50 text-red-400 border border-red-700/50 text-xs">error</Badge>
                     )}
+                    {msg.timestamp && (
+                      <span className="ml-auto text-xs text-muted-foreground shrink-0">{formatTime(msg.timestamp)}</span>
+                    )}
                   </div>
                   {msg.text && (
                     <p className="text-sm text-foreground whitespace-pre-wrap">{msg.text}</p>
@@ -275,36 +341,6 @@ export default function TaskDetailPage({
                       <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap">{tu.input}</pre>
                     </div>
                   ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-sm text-foreground">Audit Log</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events recorded</p>
-          ) : (
-            <div className="relative pl-6 space-y-3">
-              <div className="absolute left-[9px] top-1 bottom-1 w-px bg-border" />
-              {events.map((event) => (
-                <div key={event.id} className="relative flex items-start gap-3">
-                  <div className={`absolute left-[-15px] top-1.5 size-2.5 rounded-full ${EVENT_DOT[event.event] ?? "bg-zinc-500"}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{event.event}</span>
-                      {event.actor && <span className="text-xs text-muted-foreground">{event.actor}</span>}
-                      <span className="ml-auto text-xs text-muted-foreground shrink-0">{formatTime(event.timestamp)}</span>
-                    </div>
-                    {event.message && (
-                      <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{event.message}</p>
-                    )}
-                  </div>
                 </div>
               ))}
             </div>

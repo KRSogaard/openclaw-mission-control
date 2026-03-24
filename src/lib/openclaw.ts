@@ -207,6 +207,7 @@ export type ChatMessage = {
   text: string;
   toolUse?: Array<{ tool: string; input: string }>;
   toolError?: string;
+  timestamp?: number;
 };
 
 export async function getChatHistory(sessionKey: string): Promise<ChatMessage[]> {
@@ -217,6 +218,9 @@ export async function getChatHistory(sessionKey: string): Promise<ChatMessage[]>
   return rawMessages.map((m) => {
     const role = String(m.role) as ChatMessage["role"];
     const content = m.content;
+    const ts = typeof m.timestamp === "number" ? m.timestamp
+      : typeof m.createdAt === "number" ? m.createdAt
+        : typeof m.ts === "number" ? m.ts : undefined;
 
     if (role === "toolResult") {
       const text = typeof content === "string" ? content : JSON.stringify(content, null, 2);
@@ -224,6 +228,7 @@ export async function getChatHistory(sessionKey: string): Promise<ChatMessage[]>
       return {
         role,
         text,
+        timestamp: ts,
         toolError: (parsed as Record<string, unknown>)?.status === "error"
           ? String((parsed as Record<string, unknown>).error ?? "")
           : undefined,
@@ -246,10 +251,11 @@ export async function getChatHistory(sessionKey: string): Promise<ChatMessage[]>
         role,
         text: textParts.join("\n"),
         toolUse: toolUses.length > 0 ? toolUses : undefined,
+        timestamp: ts,
       };
     }
 
-    return { role, text: typeof content === "string" ? content : String(content ?? "") };
+    return { role, text: typeof content === "string" ? content : String(content ?? ""), timestamp: ts };
   });
 }
 

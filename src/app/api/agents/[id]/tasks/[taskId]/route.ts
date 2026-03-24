@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/index";
 import { agentTasks } from "@/lib/db/schema";
-import { cancelTask, retryTask, completeTask } from "@/lib/task-dispatcher";
+import { cancelTask, retryTask, completeTask, checkInTask } from "@/lib/task-dispatcher";
 import type { AgentTask, ApiResponse } from "@/lib/types";
 
 export async function GET(
@@ -53,7 +53,12 @@ export async function POST(
   const { taskId } = await params;
 
   try {
-    const body = (await request.json()) as { action: "retry" | "complete"; result?: string };
+    const body = (await request.json()) as { action: "retry" | "complete" | "check-in"; result?: string };
+
+    if (body.action === "check-in") {
+      await checkInTask(taskId);
+      return Response.json({ data: { ok: true } });
+    }
 
     if (body.action === "retry") {
       await retryTask(taskId);

@@ -95,6 +95,15 @@ async function sendCheckIn(taskId: string, agentId: string, sessionKey: string, 
   }
 }
 
+export async function checkInTask(taskId: string): Promise<void> {
+  const db = getDb();
+  const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
+  if (!task || task.status !== "running" || !task.sessionKey) return;
+
+  logEvent(taskId, "check_in", "Manual check-in triggered by operator", "operator");
+  await sendCheckIn(taskId, task.agentId, task.sessionKey, task.title);
+}
+
 type RunningTask = {
   taskId: string;
   agentId: string;
