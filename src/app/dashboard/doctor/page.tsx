@@ -37,9 +37,9 @@ const STATUS_COLOR: Record<CheckStatus, string> = {
 };
 
 const STATUS_BADGE: Record<CheckStatus, string> = {
-  pass: "bg-emerald-600",
-  warn: "bg-amber-600",
-  fail: "bg-red-600",
+  pass: "bg-emerald-900/50 text-emerald-400 border border-emerald-700/50",
+  warn: "bg-amber-900/50 text-amber-400 border border-amber-700/50",
+  fail: "bg-red-900/50 text-red-400 border border-red-700/50",
 };
 
 const FIXABLE_PREFIXES = ["hooks-token-", "exec-default-policy", "exec-", "tools-mc-"];
@@ -216,11 +216,11 @@ export default function DoctorPage() {
                             <div className="ml-auto flex items-center gap-2">
                               {isFixable(check.id, check.status) && (
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => handleFix(check.id)}
                                   disabled={fixing === check.id}
-                                  className="h-5 px-2 text-[10px]"
+                                  className="h-6 px-2 text-[10px] text-sky-400 border-sky-700/50 hover:bg-sky-900/30 hover:text-sky-300"
                                 >
                                   {fixing === check.id ? "Fixing..." : "Fix"}
                                 </Button>
