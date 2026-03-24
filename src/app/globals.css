@@ -129,6 +129,12 @@
   }
 }
 
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+}
+
 .editor-line-number {
   display: inline-block;
   width: 3rem;

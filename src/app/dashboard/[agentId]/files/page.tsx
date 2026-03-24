@@ -35,28 +35,7 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function addLineNumbers(html: string): string {
-  const lineRegex = /<span class="line">/g;
-  let lineNum = 0;
-  return html.replace(lineRegex, () => {
-    lineNum++;
-    return `<span class="line"><span class="line-number">${lineNum}</span>`;
-  });
-}
 
-function wrapPlainWithLineNumbers(content: string): string {
-  const lines = content.split("\n").map((line, i) =>
-    `<span class="line"><span class="line-number">${i + 1}</span>${escapeHtml(line)}</span>`
-  ).join("\n");
-  return `<pre class="shiki"><code>${lines}</code></pre>`;
-}
-
-function addLineNumbersToEditorHtml(html: string): string {
-  const lines = html.split("\n");
-  return lines.map((line, i) =>
-    `<span class="editor-line-number">${i + 1}</span>${line}`
-  ).join("\n");
-}
 import {
   Breadcrumb,
   BreadcrumbItem,
