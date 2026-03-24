@@ -1,0 +1,420 @@
+"use client";
+
+import { useEffect, useState, useRef, use } from "react";
+import type { AgentView, AgentSummary, ModelInfo, ApiResponse } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
+function AgentAccessCard({
+  title,
+  subtitle,
+  current,
+  allAgents,
+  isSaving,
+  supportsWildcard,
+  onUpdate,
+}: {
+  title: string;
+  subtitle: string;
+  current: string[];
+  allAgents: AgentSummary[];
+  isSaving: boolean;
+  supportsWildcard?: boolean;
+  onUpdate: (value: string[]) => void;
+}) {
+  const isWildcard = current.length === 1 && current[0] === "*";
+  const effectiveIds = isWildcard ? allAgents.map((a) => a.id) : current;
+  const allSelected = effectiveIds.length === allAgents.length && allAgents.length > 0;
+
+  function handleToggle(id: string) {
+    const next = effectiveIds.includes(id)
+      ? effectiveIds.filter((x) => x !== id)
+      : [...effectiveIds, id];
+    onUpdate(next);
+  }
+
+  function handleSelectAll() {
+    if (allSelected) {
+      onUpdate([]);
+    } else if (supportsWildcard) {
+      onUpdate(["*"]);
+    } else {
+      onUpdate(allAgents.map((a) => a.id));
+    }
+  }
+
+  return (
+    <Card className="bg-zinc-900 border-zinc-800">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-zinc-50 text-sm">{title}</CardTitle>
+            <p className="text-[11px] text-zinc-500 mt-0.5">{subtitle}</p>
+          </div>
+          {isSaving && <span className="text-[10px] text-zinc-500">Saving...</span>}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allSelected || isWildcard}
+              onChange={handleSelectAll}
+              disabled={isSaving}
+              className="rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
+            />
+            <span className={`text-sm font-medium ${allSelected || isWildcard ? "text-emerald-400" : "text-zinc-300"}`}>
+              Select all
+            </span>
+            {isWildcard && supportsWildcard && (
+              <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-700">wildcard</Badge>
+            )}
+          </label>
+          {!isWildcard && (
+            <>
+              <div className="h-px bg-zinc-800" />
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {allAgents.map((a) => (
+                  <label key={a.id} className="flex items-center gap-2 cursor-pointer rounded px-1 py-0.5 hover:bg-zinc-800/50">
+                    <input
+                      type="checkbox"
+                      checked={effectiveIds.includes(a.id)}
+                      onChange={() => handleToggle(a.id)}
+                      disabled={isSaving}
+                      className="rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
+                    />
+                    <span className="text-sm text-zinc-300">{a.name}</span>
+                    <span className="text-[10px] text-zinc-600 ml-auto">{a.id}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AgentDashboardPage({
+  params,
+}: {
+  params: Promise<{ agentId: string }>;
+}) {
+  const { agentId } = use(params);
+  const [agent, setAgent] = useState<AgentView | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [descValue, setDescValue] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [allAgents, setAllAgents] = useState<AgentSummary[]>([]);
+  const [isSavingModel, setIsSavingModel] = useState(false);
+  const [isSavingAccess, setIsSavingAccess] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  async function refetchAgent() {
+    const res = await fetch(`/api/agents/${agentId}`);
+    const json = (await res.json()) as ApiResponse<AgentView>;
+    if (json.data) {
+      setAgent(json.data);
+      setDescValue(json.data.description || "");
+    }
+  }
+
+  useEffect(() => {
+    async function load() {
+      try {
+        await refetchAgent();
+      } catch {
+        setError("Failed to load agent");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [agentId]);
+
+  useEffect(() => {
+    async function fetchSideData() {
+      const [modelsRes, agentsRes] = await Promise.all([
+        fetch("/api/models"),
+        fetch("/api/agents"),
+      ]);
+      const modelsJson = (await modelsRes.json()) as ApiResponse<ModelInfo[]>;
+      const agentsJson = (await agentsRes.json()) as ApiResponse<AgentSummary[]>;
+      if (modelsJson.data) setModels(modelsJson.data);
+      if (agentsJson.data) setAllAgents(agentsJson.data.filter((a) => a.id !== agentId));
+    }
+    fetchSideData().catch(() => {});
+  }, [agentId]);
+
+  useEffect(() => {
+    if (isEditingDesc && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isEditingDesc]);
+
+  async function handleSaveDescription() {
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/agents/hierarchy`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId, description: descValue || null }),
+      });
+      if (res.ok) {
+        setAgent((prev) => prev ? { ...prev, description: descValue || null } : prev);
+        setIsEditingDesc(false);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleModelChange(newModel: string) {
+    if (!agent || newModel === agent.model) return;
+    setIsSavingModel(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: newModel }),
+      });
+      if (res.ok) {
+        setAgent((prev) => prev ? { ...prev, model: newModel } : prev);
+      }
+    } finally {
+      setIsSavingModel(false);
+    }
+  }
+
+  async function handleAccessUpdate(field: "allowedSubagents" | "agentToAgentPeers", value: string[]) {
+    setIsSavingAccess(true);
+    try {
+      await fetch(`/api/agents/${agentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      await refetchAgent();
+    } finally {
+      setIsSavingAccess(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-32 bg-zinc-800 rounded-xl" />
+          <Skeleton className="h-32 bg-zinc-800 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !agent) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <p className="text-red-400">{error ?? "Agent not found"}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-auto p-6 space-y-6">
+      <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-zinc-50 text-sm">Description</CardTitle>
+              {!isEditingDesc && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingDesc(true)}
+                  className="text-xs text-zinc-400"
+                >
+                  {agent.description ? "Edit" : "Add"}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isEditingDesc ? (
+              <div className="space-y-2">
+                <textarea
+                  ref={textareaRef}
+                  value={descValue}
+                  onChange={(e) => setDescValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.ctrlKey) handleSaveDescription();
+                    if (e.key === "Escape") {
+                      setDescValue(agent.description || "");
+                      setIsEditingDesc(false);
+                    }
+                  }}
+                  rows={3}
+                  className="w-full rounded-md bg-zinc-800 px-3 py-2 text-sm text-zinc-100 border border-zinc-700 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  placeholder="Who is this agent? What do they do?"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveDescription}
+                    disabled={isSaving}
+                    className="bg-sky-600 hover:bg-sky-700 text-white"
+                  >
+                    {isSaving ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setDescValue(agent.description || "");
+                      setIsEditingDesc(false);
+                    }}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : agent.description ? (
+              <p className="text-sm text-zinc-300 whitespace-pre-wrap">{agent.description}</p>
+            ) : (
+              <p className="text-sm text-zinc-600 italic">No description set</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-zinc-50 text-sm">Channels</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {agent.channels.length > 0 ? (
+                <div className="space-y-2">
+                  {agent.channels.map((ch, idx) => (
+                    <div key={idx} className="flex items-center gap-2 rounded-md bg-zinc-800/50 px-3 py-2">
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">{ch.platform}</Badge>
+                        {ch.kind === "channel" && ch.target && (
+                          <span className="text-sm text-zinc-200">{ch.target}</span>
+                        )}
+                        {ch.kind === "dm" && (
+                          <span className="text-sm text-zinc-400">Direct messages</span>
+                        )}
+                        {ch.kind === "catch-all" && (
+                          <span className="text-sm text-zinc-400">All unmatched messages</span>
+                        )}
+                      </div>
+                      <div className="ml-auto flex items-center gap-2">
+                        {ch.kind === "channel" && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] ${ch.requireMention ? "text-amber-400 border-amber-700" : "text-emerald-400 border-emerald-700"}`}
+                          >
+                            {ch.requireMention ? "mention required" : "auto-respond"}
+                          </Badge>
+                        )}
+                        <span className="text-[10px] text-zinc-600">@{ch.accountId}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-600 italic">No channels bound</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <AgentAccessCard
+            title="Sub-agent Access"
+            subtitle="Agents this agent can spawn"
+            current={agent.config.allowedSubagents}
+            allAgents={allAgents}
+            isSaving={isSavingAccess}
+            supportsWildcard
+            onUpdate={(value) => handleAccessUpdate("allowedSubagents", value)}
+          />
+
+          <AgentAccessCard
+            title="Agent-to-Agent Peers"
+            subtitle="Agents that can communicate directly"
+            current={agent.config.agentToAgentPeers}
+            allAgents={allAgents}
+            isSaving={isSavingAccess}
+            onUpdate={(value) => handleAccessUpdate("agentToAgentPeers", value)}
+          />
+
+          {agent.config.mentionPatterns.length > 0 && (
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-zinc-50 text-sm">Mention Patterns</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {agent.config.mentionPatterns.map((p) => (
+                    <Badge key={p} variant="outline" className="font-mono text-xs">{p}</Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-zinc-50 text-sm">Configuration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500">Model</span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={agent.model}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      disabled={isSavingModel || models.length === 0}
+                      className="rounded-md bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-zinc-200 font-mono focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
+                    >
+                      {models.length === 0 && (
+                        <option value={agent.model}>{agent.model}</option>
+                      )}
+                      {models.map((m) => (
+                        <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
+                          {m.provider}/{m.id}
+                        </option>
+                      ))}
+                    </select>
+                    {isSavingModel && <span className="text-[10px] text-zinc-500">Saving...</span>}
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Heartbeat</span>
+                  <span className="text-zinc-200">{agent.config.heartbeat ?? "disabled"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Hooks access</span>
+                  <Badge variant={agent.config.hasHooksAccess ? "default" : "outline"} className="text-[10px]">
+                    {agent.config.hasHooksAccess ? "yes" : "no"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Default agent</span>
+                  <Badge variant={agent.isDefault ? "default" : "outline"} className="text-[10px]">
+                    {agent.isDefault ? "yes" : "no"}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+  );
+}

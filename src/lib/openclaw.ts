@@ -1,0 +1,435 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import type { GatewayStatus, FileEntry, FileContent } from "./types";
+import { getWsClient } from "./openclaw-ws";
+
+const OPENCLAW_HOME = path.join(os.homedir(), ".openclaw");
+const CONFIG_PATH = path.join(OPENCLAW_HOME, "openclaw.json");
+const DEFAULT_WORKSPACE = path.join(OPENCLAW_HOME, "workspace");
+
+const BOOTSTRAP_FILES = [
+  "AGENTS.md",
+  "SOUL.md",
+  "IDENTITY.md",
+  "USER.md",
+  "TOOLS.md",
+  "MEMORY.md",
+  "HEARTBEAT.md",
+];
+
+const LANG_MAP: Record<string, string> = {
+  ".ts": "typescript",
+  ".tsx": "tsx",
+  ".js": "javascript",
+  ".jsx": "jsx",
+  ".json": "json",
+  ".md": "markdown",
+  ".yml": "yaml",
+  ".yaml": "yaml",
+  ".css": "css",
+  ".html": "html",
+  ".sh": "bash",
+  ".py": "python",
+  ".rs": "rust",
+  ".go": "go",
+  ".sql": "sql",
+  ".toml": "toml",
+  ".xml": "xml",
+  ".env": "bash",
+  ".txt": "plaintext",
+};
+
+type InternalAgentRouting = {
+  channel: string;
+  accountId: string;
+  peerKind: "channel" | "dm" | "catch-all";
+  peer?: string;
+  requireMention: boolean;
+};
+
+type InternalAgent = {
+  id: string;
+  name: string;
+  model: string;
+  isDefault: boolean;
+  workspace: string;
+  workspacePath: string;
+  routing: InternalAgentRouting[];
+};
+
+type InternalAgentConfig = {
+  mentionPatterns: string[];
+  allowedSubagents: string[];
+  agentToAgentPeers: string[];
+  hasHooksAccess: boolean;
+  heartbeat: string | null;
+};
+
+type InternalAgentDetail = InternalAgent & {
+  bootstrapFiles: string[];
+  agentDir: string;
+  config: InternalAgentConfig;
+};
+
+type OpenClawConfigAgent = {
+  id?: string;
+  name?: string;
+  default?: boolean;
+  model?: string | { primary?: string };
+  workspace?: string | string[];
+  agentDir?: string;
+  identity?: { name?: string };
+  groupChat?: { mentionPatterns?: string[] };
+  subagents?: { allowAgents?: string[] };
+  heartbeat?: { every?: string };
+};
+
+type OpenClawBinding = {
+  agentId?: string;
+  match?: {
+    channel?: string;
+    accountId?: string;
+    peer?: { kind?: string; id?: string };
+  };
+};
+
+type ChannelConfig = Record<string, { allow?: boolean; requireMention?: boolean }>;
+
+type OpenClawConfig = {
+  meta?: { lastTouchedVersion?: string };
+  agents?: {
+    defaults?: {
+      model?: { primary?: string };
+      workspace?: string;
+      heartbeat?: { every?: string };
+    };
+    list?: OpenClawConfigAgent[];
+  };
+  bindings?: OpenClawBinding[];
+  gateway?: { port?: number };
+  hooks?: { allowedAgentIds?: string[] };
+  tools?: {
+    agentToAgent?: {
+      enabled?: boolean;
+      allow?: string[];
+    };
+  };
+  channels?: {
+    slack?: {
+      channels?: ChannelConfig;
+    };
+  };
+};
+
+function resolveHome(p: string): string {
+  if (p.startsWith("~/")) {
+    return path.join(os.homedir(), p.slice(2));
+  }
+  return path.resolve(p);
+}
+
+async function readConfig(): Promise<OpenClawConfig> {
+  try {
+    const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+    return JSON.parse(raw) as OpenClawConfig;
+  } catch {
+    return {};
+  }
+}
+
+function resolveModel(
+  agentModel: string | { primary?: string } | undefined,
+  defaultModel: string
+): string {
+  if (!agentModel) return defaultModel;
+  if (typeof agentModel === "string") return agentModel;
+  return agentModel.primary ?? defaultModel;
+}
+
+function buildRoutingForAgent(
+  agentId: string,
+  bindings: OpenClawBinding[],
+  channelConfigs: ChannelConfig
+): InternalAgentRouting[] {
+  return bindings
+    .filter((b) => b.agentId === agentId)
+    .map((b) => {
+      const peerKind = b.match?.peer?.kind === "channel"
+        ? "channel" as const
+        : b.match?.peer
+          ? "dm" as const
+          : "catch-all" as const;
+      const peerId = b.match?.peer?.id;
+      const requireMention = peerKind === "channel" && peerId
+        ? channelConfigs[peerId]?.requireMention ?? false
+        : false;
+      return {
+        channel: b.match?.channel ?? "unknown",
+        accountId: b.match?.accountId ?? "default",
+        peerKind,
+        peer: peerId,
+        requireMention,
+      };
+    });
+}
+
+export async function getModels(): Promise<Array<{ id: string; name: string; provider: string; contextWindow?: number; reasoning?: boolean }>> {
+  try {
+    const ws = getWsClient();
+    const payload = await ws.rpc("models.list", {});
+    const models = payload.models as Array<Record<string, unknown>>;
+    return models.map((m) => ({
+      id: String(m.id),
+      name: String(m.name ?? m.id),
+      provider: String(m.provider ?? "unknown"),
+      contextWindow: typeof m.contextWindow === "number" ? m.contextWindow : undefined,
+      reasoning: typeof m.reasoning === "boolean" ? m.reasoning : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function updateAgentModel(agentId: string, modelId: string): Promise<void> {
+  const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+  const config = JSON.parse(raw) as OpenClawConfig;
+
+  const agent = config.agents?.list?.find((a) => a.id === agentId);
+  if (!agent) throw new Error(`Agent "${agentId}" not found in config`);
+
+  agent.model = modelId;
+  await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+}
+
+export async function updateAgentSubagents(agentId: string, allowAgents: string[]): Promise<void> {
+  const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+  const config = JSON.parse(raw) as OpenClawConfig;
+
+  const agent = config.agents?.list?.find((a) => a.id === agentId);
+  if (!agent) throw new Error(`Agent "${agentId}" not found in config`);
+
+  if (!agent.subagents) agent.subagents = {};
+  agent.subagents.allowAgents = allowAgents;
+  await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+}
+
+export async function updateAgentToAgent(agentId: string, peers: string[]): Promise<void> {
+  const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+  const config = JSON.parse(raw) as Record<string, unknown>;
+
+  if (!config.tools) config.tools = {};
+  const tools = config.tools as Record<string, unknown>;
+  if (!tools.agentToAgent) tools.agentToAgent = { enabled: true, allow: [] };
+  const a2a = tools.agentToAgent as { enabled: boolean; allow: string[] };
+
+  a2a.enabled = true;
+  const otherAgents = a2a.allow.filter((id) => id !== agentId);
+  const shouldIncludeSelf = peers.length > 0;
+
+  const newAllow = new Set(otherAgents);
+  for (const peer of peers) {
+    newAllow.add(peer);
+  }
+  if (shouldIncludeSelf) {
+    newAllow.add(agentId);
+  } else {
+    newAllow.delete(agentId);
+  }
+
+  a2a.allow = [...newAllow];
+  await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+}
+
+export async function getGatewayStatus(): Promise<GatewayStatus> {
+  try {
+    const ws = getWsClient();
+    const payload = await ws.rpc("status", {});
+    return {
+      online: true,
+      version: (payload.runtimeVersion as string) ?? null,
+    };
+  } catch {
+    const config = await readConfig();
+    return {
+      online: false,
+      version: config.meta?.lastTouchedVersion ?? null,
+    };
+  }
+}
+
+export async function getAgents(): Promise<InternalAgent[]> {
+  const config = await readConfig();
+
+  const defaultModel = config.agents?.defaults?.model?.primary ?? "unknown";
+  const globalWorkspace = config.agents?.defaults?.workspace ?? DEFAULT_WORKSPACE;
+  const bindings = config.bindings ?? [];
+  const channelConfigs = config.channels?.slack?.channels ?? {};
+  const agentsList = config.agents?.list ?? [];
+
+  if (agentsList.length === 0) {
+    return [
+      {
+        id: "main",
+        name: "Main Agent",
+        model: defaultModel,
+        isDefault: true,
+        workspace: globalWorkspace,
+        workspacePath: resolveHome(globalWorkspace),
+        routing: buildRoutingForAgent("main", bindings, channelConfigs),
+      },
+    ];
+  }
+
+  return agentsList.map((a) => {
+    const id = a.id ?? a.name ?? "unknown";
+    const ws = Array.isArray(a.workspace)
+      ? a.workspace[0]
+      : a.workspace ?? globalWorkspace;
+    return {
+      id,
+      name: a.identity?.name ?? a.name ?? id,
+      model: resolveModel(a.model, defaultModel),
+      isDefault: a.default === true,
+      workspace: ws,
+      workspacePath: resolveHome(ws),
+      routing: buildRoutingForAgent(id, bindings, channelConfigs),
+    };
+  });
+}
+
+export async function getAgent(agentId: string): Promise<InternalAgentDetail | null> {
+  const config = await readConfig();
+  const agents = await getAgents();
+  const agent = agents.find((a) => a.id === agentId);
+  if (!agent) return null;
+
+  const configAgent = config.agents?.list?.find((a) => a.id === agentId);
+
+  const bootstrapFiles: string[] = [];
+  for (const file of BOOTSTRAP_FILES) {
+    try {
+      await fs.access(path.join(agent.workspacePath, file));
+      bootstrapFiles.push(file);
+    } catch {
+      continue;
+    }
+  }
+
+  const agentDir = configAgent?.agentDir
+    ?? path.join(OPENCLAW_HOME, "agents", agentId, "agent");
+
+  const defaultHeartbeat = config.agents?.defaults?.heartbeat?.every ?? null;
+  const hooksAgents = config.hooks?.allowedAgentIds ?? [];
+  const a2aEnabled = config.tools?.agentToAgent?.enabled ?? false;
+  const a2aAll = config.tools?.agentToAgent?.allow ?? [];
+  const a2aPeers = a2aEnabled && a2aAll.includes(agentId)
+    ? a2aAll.filter((id) => id !== agentId)
+    : [];
+
+  const agentConfig: InternalAgentConfig = {
+    mentionPatterns: configAgent?.groupChat?.mentionPatterns ?? [],
+    allowedSubagents: configAgent?.subagents?.allowAgents ?? [],
+    agentToAgentPeers: a2aPeers,
+    hasHooksAccess: hooksAgents.includes(agentId),
+    heartbeat: configAgent?.heartbeat?.every ?? defaultHeartbeat,
+  };
+
+  return { ...agent, bootstrapFiles, agentDir, config: agentConfig };
+}
+
+function assertWithinWorkspace(workspacePath: string, target: string): void {
+  const resolved = path.resolve(workspacePath, target);
+  const normalizedWorkspace = path.resolve(workspacePath);
+  if (!resolved.startsWith(normalizedWorkspace + path.sep) && resolved !== normalizedWorkspace) {
+    throw new Error("Path traversal detected");
+  }
+}
+
+export async function listFiles(
+  workspacePath: string,
+  relativePath: string
+): Promise<FileEntry[]> {
+  assertWithinWorkspace(workspacePath, relativePath);
+  const dirPath = path.resolve(workspacePath, relativePath);
+
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  const results: FileEntry[] = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+
+    const fullPath = path.join(dirPath, entry.name);
+    const stat = await fs.stat(fullPath);
+    const entryRelative = path.relative(workspacePath, fullPath);
+
+    results.push({
+      name: entry.name,
+      path: entryRelative,
+      type: entry.isDirectory() ? "directory" : "file",
+      size: stat.size,
+      modified: stat.mtime.toISOString(),
+    });
+  }
+
+  results.sort((a, b) => {
+    if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  return results;
+}
+
+export async function readFile(
+  workspacePath: string,
+  relativePath: string
+): Promise<FileContent> {
+  assertWithinWorkspace(workspacePath, relativePath);
+  const filePath = path.resolve(workspacePath, relativePath);
+
+  const stat = await fs.stat(filePath);
+  if (stat.isDirectory()) {
+    throw new Error("Cannot read a directory as a file");
+  }
+
+  const MAX_FILE_SIZE = 1024 * 1024;
+  if (stat.size > MAX_FILE_SIZE) {
+    throw new Error("File too large (max 1MB)");
+  }
+
+  const content = await fs.readFile(filePath, "utf-8");
+  const ext = path.extname(filePath).toLowerCase();
+
+  return {
+    path: relativePath,
+    content,
+    size: stat.size,
+    language: LANG_MAP[ext] ?? null,
+  };
+}
+
+export async function writeFile(
+  workspacePath: string,
+  relativePath: string,
+  content: string
+): Promise<void> {
+  assertWithinWorkspace(workspacePath, relativePath);
+  const filePath = path.resolve(workspacePath, relativePath);
+  const dir = path.dirname(filePath);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(filePath, content, "utf-8");
+}
+
+export async function deleteFile(
+  workspacePath: string,
+  relativePath: string
+): Promise<void> {
+  assertWithinWorkspace(workspacePath, relativePath);
+  const filePath = path.resolve(workspacePath, relativePath);
+  const stat = await fs.stat(filePath);
+  if (stat.isDirectory()) {
+    await fs.rm(filePath, { recursive: true });
+  } else {
+    await fs.unlink(filePath);
+  }
+}

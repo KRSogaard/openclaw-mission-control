@@ -1,0 +1,126 @@
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+
+const BEGIN_MARKER = "<!-- BEGIN:MC_TOOLS -->";
+const END_MARKER = "<!-- END:MC_TOOLS -->";
+const MC_URL = process.env.MC_INTERNAL_URL ?? "http://localhost:3000";
+const TOKEN_FILE_PATH = path.join(os.homedir(), ".openclaw", "credentials", "mc-hooks-token");
+
+let _cachedToken: string | null = null;
+
+export async function getHooksToken(): Promise<string> {
+  if (_cachedToken) return _cachedToken;
+
+  try {
+    const existing = await fs.readFile(TOKEN_FILE_PATH, "utf-8");
+    const token = existing.trim();
+    if (token) {
+      _cachedToken = token;
+      return token;
+    }
+  } catch {
+    void 0;
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  await fs.mkdir(path.dirname(TOKEN_FILE_PATH), { recursive: true });
+  await fs.writeFile(TOKEN_FILE_PATH, token, { mode: 0o600 });
+  _cachedToken = token;
+  return token;
+}
+
+function generateSection(): string {
+  return `${BEGIN_MARKER}
+<!-- MC_TOOLS_VERSION: {{HASH}} -->
+
+---
+
+## Mission Control Tools
+
+> Auto-managed by Mission Control. Do not edit this section manually.
+> When assigned a task by Mission Control, use these tools to report status via \`exec\`.
+
+### task.complete
+
+Report that an assigned task is done. Call this when you have finished the work.
+
+\`\`\`bash
+curl -s -X POST ${MC_URL}/api/hooks/task \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -d '{"action":"task.complete","taskId":"<TASK_ID>","result":"<summary of what you did>"}'
+\`\`\`
+
+### task.update
+
+Report progress on a running task. Call this periodically for long-running work so Mission Control knows you're still active.
+
+\`\`\`bash
+curl -s -X POST ${MC_URL}/api/hooks/task \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -d '{"action":"task.update","taskId":"<TASK_ID>","status":"<what you are currently doing>"}'
+\`\`\`
+
+### task.create
+
+Assign a task to another agent. Only use for agents you are allowed to communicate with.
+
+\`\`\`bash
+curl -s -X POST ${MC_URL}/api/hooks/task \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -d '{"action":"task.create","agentId":"<target_agent_id>","title":"<task title>","description":"<detailed instructions>","createdBy":"<your_agent_id>"}'
+\`\`\`
+
+### Rules
+
+- Always call \`task.complete\` when you finish a task. If you don't, Mission Control will check in and eventually mark the task as failed.
+- Use \`task.update\` for tasks that take more than a few minutes — it resets the timeout.
+- Tasks arrive via messages prefixed with \`[MISSION CONTROL — NEW TASK]\`. The task ID is in the message.
+
+${END_MARKER}`;
+}
+
+function hashContent(content: string): string {
+  return crypto.createHash("sha256").update(content).digest("hex").slice(0, 12);
+}
+
+function extractVersion(content: string): string | null {
+  const match = content.match(/<!-- MC_TOOLS_VERSION: (\w+) -->/);
+  return match?.[1] ?? null;
+}
+
+export async function syncToolsToWorkspace(workspacePath: string): Promise<boolean> {
+  await getHooksToken();
+  const toolsPath = path.join(workspacePath, "TOOLS.md");
+  const rawSection = generateSection();
+  const sectionHash = hashContent(rawSection);
+  const section = rawSection.replace("{{HASH}}", sectionHash);
+
+  let existing = "";
+  try {
+    existing = await fs.readFile(toolsPath, "utf-8");
+  } catch {
+    await fs.writeFile(toolsPath, section, "utf-8");
+    return true;
+  }
+
+  const existingHash = extractVersion(existing);
+  if (existingHash === sectionHash) return false;
+
+  const beginIdx = existing.indexOf(BEGIN_MARKER);
+  const endIdx = existing.indexOf(END_MARKER);
+
+  let updated: string;
+  if (beginIdx !== -1 && endIdx !== -1) {
+    updated = existing.slice(0, beginIdx) + section + existing.slice(endIdx + END_MARKER.length);
+  } else {
+    updated = existing.trimEnd() + "\n\n" + section + "\n";
+  }
+
+  await fs.writeFile(toolsPath, updated, "utf-8");
+  return true;
+}
