@@ -820,9 +820,22 @@ export default function TasksPage({
                     ))}
 
                     {colTasks.length === 0 && !(isTodo && showCreate) && (
-                      <p className="text-[11px] text-muted-foreground/40 text-center py-8">
-                        No tasks
-                      </p>
+                      <div className="flex flex-col items-center gap-2 py-8">
+                        <p className="text-[11px] text-muted-foreground/40">
+                          {isTodo ? "No tasks in queue" : "No tasks"}
+                        </p>
+                        {isTodo && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowCreate(true)}
+                            className="text-xs"
+                          >
+                            <IconPlus />
+                            New task
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </ScrollArea>
