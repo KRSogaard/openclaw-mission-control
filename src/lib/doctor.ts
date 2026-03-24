@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { getAgents, getAgent } from "./openclaw";
 import { getWsClient } from "./openclaw-ws";
+import { syncToolsToWorkspace, getHooksToken } from "./mc-tools";
 
 const OPENCLAW_HOME = path.join(os.homedir(), ".openclaw");
 const TOKEN_FILE = path.join(OPENCLAW_HOME, "credentials", "mc-hooks-token");
@@ -220,4 +221,94 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
   };
 
   return { checks, summary, timestamp: Date.now() };
+}
+
+export type FixResult = {
+  checkId: string;
+  fixed: boolean;
+  message: string;
+};
+
+const FIXABLE_PREFIXES = [
+  "hooks-token-",
+  "exec-default-policy",
+  "exec-",
+  "tools-mc-",
+];
+
+export function isFixable(checkId: string, status: CheckStatus): boolean {
+  if (status === "pass") return false;
+  return FIXABLE_PREFIXES.some((p) => checkId.startsWith(p));
+}
+
+export async function fixCheck(checkId: string): Promise<FixResult> {
+  if (checkId === "hooks-token-exists" || checkId === "hooks-token-nonempty") {
+    await getHooksToken();
+    return { checkId, fixed: true, message: "Token generated" };
+  }
+
+  if (checkId === "hooks-token-permissions") {
+    await fs.chmod(TOKEN_FILE, 0o600);
+    return { checkId, fixed: true, message: "Permissions set to 600" };
+  }
+
+  if (checkId === "exec-default-policy") {
+    await setExecApproval("defaults");
+    return { checkId, fixed: true, message: "Default exec policy set to allow" };
+  }
+
+  if (checkId.startsWith("exec-")) {
+    const agentId = checkId.replace("exec-", "");
+    await setExecApproval(agentId);
+    return { checkId, fixed: true, message: `Exec auto-approved for ${agentId}` };
+  }
+
+  if (checkId.startsWith("tools-mc-")) {
+    const agentId = checkId.replace("tools-mc-", "");
+    const agents = await getAgents();
+    const agent = agents.find((a) => a.id === agentId);
+    if (!agent) return { checkId, fixed: false, message: `Agent ${agentId} not found` };
+    await syncToolsToWorkspace(agent.workspacePath);
+    return { checkId, fixed: true, message: "MC tools synced to TOOLS.md" };
+  }
+
+  return { checkId, fixed: false, message: "Not auto-fixable" };
+}
+
+export async function fixAll(checks: DiagnosticCheck[]): Promise<FixResult[]> {
+  const results: FixResult[] = [];
+  for (const check of checks) {
+    if (!isFixable(check.id, check.status)) continue;
+    const result = await fixCheck(check.id);
+    results.push(result);
+  }
+  return results;
+}
+
+type ExecApprovals = {
+  version?: number;
+  socket?: unknown;
+  defaults?: { policy?: string; ask?: string };
+  agents?: Record<string, { policy?: string; ask?: string; allowlist?: unknown[] }>;
+};
+
+async function setExecApproval(target: string): Promise<void> {
+  let data: ExecApprovals;
+  try {
+    const raw = await fs.readFile(EXEC_APPROVALS_FILE, "utf-8");
+    data = JSON.parse(raw) as ExecApprovals;
+  } catch {
+    data = { version: 1, defaults: {}, agents: {} };
+  }
+
+  if (target === "defaults") {
+    data.defaults = { ...data.defaults, policy: "allow", ask: "never" };
+  } else {
+    if (!data.agents) data.agents = {};
+    if (!data.agents[target]) data.agents[target] = {};
+    data.agents[target].policy = "allow";
+    data.agents[target].ask = "never";
+  }
+
+  await fs.writeFile(EXEC_APPROVALS_FILE, JSON.stringify(data, null, 2), "utf-8");
 }

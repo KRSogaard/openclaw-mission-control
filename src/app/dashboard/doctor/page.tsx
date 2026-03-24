@@ -42,9 +42,17 @@ const STATUS_BADGE: Record<CheckStatus, string> = {
   fail: "bg-red-600",
 };
 
+const FIXABLE_PREFIXES = ["hooks-token-", "exec-default-policy", "exec-", "tools-mc-"];
+function isFixable(checkId: string, status: CheckStatus): boolean {
+  if (status === "pass") return false;
+  return FIXABLE_PREFIXES.some((p) => checkId.startsWith(p));
+}
+
 export default function DoctorPage() {
   const [result, setResult] = useState<DiagnosticResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [fixingAll, setFixingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function runChecks() {
@@ -65,9 +73,41 @@ export default function DoctorPage() {
     }
   }
 
+  async function handleFix(checkId: string) {
+    setFixing(checkId);
+    try {
+      await fetch("/api/doctor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "fix", checkId }),
+      });
+      await runChecks();
+    } finally {
+      setFixing(null);
+    }
+  }
+
+  async function handleFixAll() {
+    setFixingAll(true);
+    try {
+      await fetch("/api/doctor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "fix-all" }),
+      });
+      await runChecks();
+    } finally {
+      setFixingAll(false);
+    }
+  }
+
   const categories = result
     ? [...new Set(result.checks.map((c) => c.category))]
     : [];
+
+  const hasFixable = result
+    ? result.checks.some((c) => isFixable(c.id, c.status))
+    : false;
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
@@ -78,13 +118,24 @@ export default function DoctorPage() {
             Check gateway connectivity, agent permissions, tool sync, and exec approvals
           </p>
         </div>
-        <Button
-          onClick={runChecks}
-          disabled={loading}
-          className="bg-sky-600 hover:bg-sky-700 text-white"
-        >
-          {loading ? "Running..." : result ? "Re-run checks" : "Run diagnostics"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {hasFixable && (
+            <Button
+              variant="outline"
+              onClick={handleFixAll}
+              disabled={loading || fixingAll}
+            >
+              {fixingAll ? "Fixing..." : "Fix all"}
+            </Button>
+          )}
+          <Button
+            onClick={runChecks}
+            disabled={loading}
+            className="bg-sky-600 hover:bg-sky-700 text-white"
+          >
+            {loading ? "Running..." : result ? "Re-run checks" : "Run diagnostics"}
+          </Button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
@@ -162,9 +213,22 @@ export default function DoctorPage() {
                                 {check.agentId}
                               </Badge>
                             )}
-                            <Badge className={`text-[10px] ml-auto ${STATUS_BADGE[check.status]}`}>
-                              {check.status}
-                            </Badge>
+                            <div className="ml-auto flex items-center gap-2">
+                              {isFixable(check.id, check.status) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleFix(check.id)}
+                                  disabled={fixing === check.id}
+                                  className="h-5 px-2 text-[10px]"
+                                >
+                                  {fixing === check.id ? "Fixing..." : "Fix"}
+                                </Button>
+                              )}
+                              <Badge className={`text-[10px] ${STATUS_BADGE[check.status]}`}>
+                                {check.status}
+                              </Badge>
+                            </div>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {check.message}
