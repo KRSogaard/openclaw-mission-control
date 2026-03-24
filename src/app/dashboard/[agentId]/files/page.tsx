@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { Highlighter } from "shiki";
 import type {
   AgentView,
   ApiResponse,
@@ -11,6 +12,23 @@ import type {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+
+let highlighterPromise: Promise<Highlighter> | null = null;
+function getHighlighter(): Promise<Highlighter> {
+  if (!highlighterPromise) {
+    highlighterPromise = import("shiki").then((shiki) =>
+      shiki.createHighlighter({
+        themes: ["github-dark", "github-light"],
+        langs: [
+          "typescript", "tsx", "javascript", "jsx", "json", "markdown",
+          "yaml", "css", "html", "bash", "python", "rust", "go", "sql",
+          "toml", "xml",
+        ],
+      })
+    );
+  }
+  return highlighterPromise;
+}
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -20,10 +38,10 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-function buildBreadcrumbs(currentPath: string) {
-  if (currentPath === ".") return [{ label: "root", path: "." }];
+function buildBreadcrumbs(currentPath: string, rootLabel: string) {
+  if (currentPath === ".") return [{ label: rootLabel, path: "." }];
   const parts = currentPath.split("/");
-  const crumbs = [{ label: "root", path: "." }];
+  const crumbs = [{ label: rootLabel, path: "." }];
   for (let i = 0; i < parts.length; i++) {
     crumbs.push({
       label: parts[i],
@@ -97,9 +115,31 @@ export default function AgentWorkspacePage({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
+  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const newFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!selectedFile?.content || !selectedFile.language) {
+      setHighlightedHtml(null);
+      return;
+    }
+    let cancelled = false;
+    getHighlighter().then((h) => {
+      if (cancelled) return;
+      try {
+        const html = h.codeToHtml(selectedFile.content, {
+          lang: selectedFile.language ?? "text",
+          themes: { dark: "github-dark", light: "github-light" },
+        });
+        setHighlightedHtml(html);
+      } catch {
+        setHighlightedHtml(null);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [selectedFile?.content, selectedFile?.language]);
 
   const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp"]);
   function isImageFile(filePath: string): boolean {
@@ -307,7 +347,7 @@ export default function AgentWorkspacePage({
     }
   }
 
-  const crumbs = buildBreadcrumbs(currentPath);
+  const crumbs = buildBreadcrumbs(currentPath, agent?.workspaceLabel ?? agentId);
 
   if (error && !agent) {
     return (
@@ -575,23 +615,30 @@ export default function AgentWorkspacePage({
                 </div>
               ) : (
                 <ScrollArea className="flex-1">
-                  <pre className="p-0 text-sm leading-6">
-                    <code>
-                      {selectedFile.content.split("\n").map((line, i) => (
-                        <div
-                          key={i}
-                          className="flex hover:bg-muted/50"
-                        >
-                          <span className="inline-block w-12 shrink-0 select-none pr-4 text-right font-mono text-xs leading-6 text-muted-foreground/50">
-                            {i + 1}
-                          </span>
-                          <span className="flex-1 whitespace-pre-wrap break-all font-mono text-foreground">
-                            {line}
-                          </span>
-                        </div>
-                      ))}
-                    </code>
-                  </pre>
+                  {highlightedHtml ? (
+                    <div
+                      className="shiki-wrapper text-sm [&_pre]:!bg-transparent [&_pre]:p-4 [&_code]:font-mono [&_.line]:leading-6"
+                      dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+                    />
+                  ) : (
+                    <pre className="p-0 text-sm leading-6">
+                      <code>
+                        {selectedFile.content.split("\n").map((line, i) => (
+                          <div
+                            key={i}
+                            className="flex hover:bg-muted/50"
+                          >
+                            <span className="inline-block w-12 shrink-0 select-none pr-4 text-right font-mono text-xs leading-6 text-muted-foreground/50">
+                              {i + 1}
+                            </span>
+                            <span className="flex-1 whitespace-pre-wrap break-all font-mono text-foreground">
+                              {line}
+                            </span>
+                          </div>
+                        ))}
+                      </code>
+                    </pre>
+                  )}
                 </ScrollArea>
               )}
             </div>

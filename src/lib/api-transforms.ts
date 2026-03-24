@@ -41,6 +41,7 @@ export function toAgentView(
   return {
     ...toAgentSummary(internal, description),
     bootstrapFiles: internal.bootstrapFiles,
+    workspaceLabel: internal.workspace,
     config: internal.config,
   };
 }

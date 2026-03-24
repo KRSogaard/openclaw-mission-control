@@ -47,6 +47,7 @@ export type AgentConfig = {
 
 export type AgentView = AgentSummary & {
   bootstrapFiles: string[];
+  workspaceLabel: string;
   config: AgentConfig;
 };
 
