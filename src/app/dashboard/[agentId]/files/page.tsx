@@ -176,16 +176,15 @@ export default function AgentWorkspacePage({
   const highlightCode = useCallback((code: string): string => {
     const h = highlighterRef.current;
     const lang = selectedFile?.language;
-    if (!h || !lang) return addLineNumbersToEditorHtml(escapeHtml(code));
+    if (!h || !lang) return escapeHtml(code);
     try {
       const html = h.codeToHtml(code, {
         lang,
         themes: { dark: "github-dark", light: "github-light" },
       });
-      const inner = html.replace(/^<pre[^>]*><code[^>]*>/, "").replace(/<\/code><\/pre>$/, "");
-      return addLineNumbersToEditorHtml(inner);
+      return html.replace(/^<pre[^>]*><code[^>]*>/, "").replace(/<\/code><\/pre>$/, "");
     } catch {
-      return addLineNumbersToEditorHtml(escapeHtml(code));
+      return escapeHtml(code);
     }
   }, [selectedFile?.language]);
 
@@ -634,14 +633,25 @@ export default function AgentWorkspacePage({
                   }}
                 >
                   <ScrollArea className="flex-1">
-                    <Editor
-                      value={editContent}
-                      onValueChange={setEditContent}
-                      highlight={highlightCode}
-                      padding={16}
-                      className="min-h-full font-mono text-sm leading-6 [&_textarea]:outline-none"
-                      style={{ fontFamily: "var(--font-geist-mono), monospace" }}
-                    />
+                    <div className="flex min-h-full">
+                      <div
+                        className="shrink-0 select-none border-r border-border bg-muted/30 py-4 text-right font-mono text-xs leading-6 text-muted-foreground/40"
+                        style={{ width: "3rem", paddingRight: "0.75rem" }}
+                        aria-hidden
+                      >
+                        {editContent.split("\n").map((_, i) => (
+                          <div key={i}>{i + 1}</div>
+                        ))}
+                      </div>
+                      <Editor
+                        value={editContent}
+                        onValueChange={setEditContent}
+                        highlight={highlightCode}
+                        padding={16}
+                        className="min-h-full flex-1 font-mono text-sm leading-6 [&_textarea]:outline-none"
+                        style={{ fontFamily: "var(--font-geist-mono), monospace" }}
+                      />
+                    </div>
                   </ScrollArea>
                   <div className="flex items-center gap-2 border-t border-border px-4 py-2">
                     <Button
