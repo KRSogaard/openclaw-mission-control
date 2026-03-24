@@ -321,8 +321,8 @@ export default function AgentWorkspacePage({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center gap-4 border-b border-border px-6 py-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-4 border-b border-border px-6 py-3">
         <Breadcrumb>
           <BreadcrumbList>
             {crumbs.map((crumb, i) => {
@@ -354,7 +354,7 @@ export default function AgentWorkspacePage({
         )}
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="w-72 shrink-0 border-r border-border">
           <ScrollArea className="h-full">
             <div className="p-2">
@@ -469,7 +469,7 @@ export default function AgentWorkspacePage({
           </ScrollArea>
         </div>
 
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {loadingContent ? (
             <div className="space-y-2 p-6">
               <Skeleton className="h-4 w-48 bg-muted" />
@@ -496,8 +496,8 @@ export default function AgentWorkspacePage({
               </ScrollArea>
             </div>
           ) : selectedFile ? (
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex items-center justify-between border-b border-border px-4 py-2">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">
                     {selectedFile.path}
@@ -536,7 +536,7 @@ export default function AgentWorkspacePage({
               </div>
               {isEditing ? (
                 <div
-                  className="flex flex-1 flex-col overflow-hidden"
+                  className="flex min-h-0 flex-1 flex-col overflow-hidden"
                   onKeyDown={(e) => {
                     if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
                       e.preventDefault();
@@ -548,7 +548,7 @@ export default function AgentWorkspacePage({
                     }
                   }}
                 >
-                  <div className="flex-1">
+                  <div className="min-h-0 flex-1 overflow-hidden">
                     <CodeEditor
                       value={editContent}
                       language={selectedFile.language}
@@ -583,7 +583,7 @@ export default function AgentWorkspacePage({
                   </div>
                 </div>
               ) : (
-                <div className="flex-1">
+                <div className="min-h-0 flex-1 overflow-hidden">
                   <CodeEditor
                     value={selectedFile.content}
                     language={selectedFile.language}
