@@ -90,6 +90,7 @@ export default function AgentWorkspacePage({
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [selectedFile, setSelectedFile] = useState<FileContent | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [loadingContent, setLoadingContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +100,12 @@ export default function AgentWorkspacePage({
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const newFileInputRef = useRef<HTMLInputElement>(null);
+
+  const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp"]);
+  function isImageFile(filePath: string): boolean {
+    const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+    return IMAGE_EXTS.has(ext);
+  }
 
   useEffect(() => {
     if (!isEditing) return;
@@ -171,6 +178,15 @@ export default function AgentWorkspacePage({
     setEditContent("");
     setLoadingContent(true);
     setSelectedFile(null);
+    setSelectedImage(null);
+
+    if (isImageFile(filePath)) {
+      const sp = new URLSearchParams({ path: filePath });
+      setSelectedImage(`/api/agents/${agentId}/files/raw?${sp}`);
+      setLoadingContent(false);
+      return;
+    }
+
     try {
       const sp = new URLSearchParams({ path: filePath });
       const res = await fetch(`/api/agents/${agentId}/files/read?${sp}`);
@@ -277,8 +293,9 @@ export default function AgentWorkspacePage({
     if (urlFile && urlFile !== selectedFile?.path) {
       openFile(urlFile);
     }
-    if (!urlFile && selectedFile) {
+    if (!urlFile && (selectedFile || selectedImage)) {
       setSelectedFile(null);
+      setSelectedImage(null);
     }
   }, [searchParams]);
 
@@ -457,6 +474,23 @@ export default function AgentWorkspacePage({
               <Skeleton className="h-4 w-3/4 bg-muted" />
               <Skeleton className="h-4 w-5/6 bg-muted" />
               <Skeleton className="h-4 w-2/3 bg-muted" />
+            </div>
+          ) : selectedImage ? (
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                <span className="text-sm text-muted-foreground">
+                  {searchParams.get("open") ?? "Image"}
+                </span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="flex items-center justify-center p-6">
+                  <img
+                    src={selectedImage}
+                    alt={searchParams.get("open") ?? "Image"}
+                    className="max-w-full rounded-md border border-border"
+                  />
+                </div>
+              </ScrollArea>
             </div>
           ) : selectedFile ? (
             <div className="flex flex-1 flex-col overflow-hidden">
