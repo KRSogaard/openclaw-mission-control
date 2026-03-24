@@ -70,7 +70,7 @@ export default function DoctorPage() {
     : [];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-auto p-6 space-y-6">
+    <div className="h-full overflow-y-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium text-foreground">System Diagnostics</h3>
