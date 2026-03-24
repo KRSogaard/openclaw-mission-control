@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import path from "node:path";
 import * as schema from "./schema";
 
-const DB_PATH = path.join(process.cwd(), "data", "mission-control.db");
+const DB_PATH = path.join(process.cwd(), "data", "control-center.db");
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 

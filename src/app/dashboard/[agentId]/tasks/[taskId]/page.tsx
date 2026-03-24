@@ -321,7 +321,7 @@ export default function TaskDetailPage({
                 }`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="outline" className="text-xs">
-                      {msg.role === "user" ? "Mission Control" : msg.role === "assistant" ? "Agent" : "Tool Result"}
+                      {msg.role === "user" ? "Control Center" : msg.role === "assistant" ? "Agent" : "Tool Result"}
                     </Badge>
                     {msg.toolError && (
                       <Badge className="bg-red-900/50 text-red-400 border border-red-700/50 text-xs">error</Badge>

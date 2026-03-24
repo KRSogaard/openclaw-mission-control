@@ -118,7 +118,7 @@ export default function DashboardLayout({
               </svg>
             </div>
             <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-semibold tracking-tight">Mission Control</span>
+              <span className="text-sm font-semibold tracking-tight">Control Center</span>
               <div className="flex items-center gap-1.5">
                 <span
                   className={`inline-block size-1.5 rounded-full ${

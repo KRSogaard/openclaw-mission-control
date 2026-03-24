@@ -4,7 +4,7 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# OpenClaw Mission Control
+# OpenClaw Control Center
 
 Sidecar dashboard for OpenClaw. Next.js 16 + Tailwind + shadcn/ui + SQLite. API-first — browser never talks to OpenClaw directly.
 
@@ -80,7 +80,7 @@ src/
 
 **No server paths in responses**: API responses never contain `workspacePath`, `agentDir`, `workspace`, or absolute filesystem paths. File paths are always relative to the agent's workspace root. Exception: `workspaceLabel` shows the tilde-based config path (e.g. `~/.openclaw/workspace/mimir`).
 
-**Sidecar pattern**: OpenClaw's `openclaw.json` is the source of truth for agents, models, channels, and bindings. Mission Control reads and writes back to it — no separate agent registry.
+**Sidecar pattern**: OpenClaw's `openclaw.json` is the source of truth for agents, models, channels, and bindings. Control Center reads and writes back to it — no separate agent registry.
 
 ## OpenClaw Integration
 
@@ -99,7 +99,7 @@ Config file: `~/.openclaw/openclaw.json` — parsed server-side for agent list, 
 
 ## Database
 
-SQLite via Drizzle ORM + better-sqlite3 at `data/mission-control.db`. Auto-created on first request. WAL mode.
+SQLite via Drizzle ORM + better-sqlite3 at `data/control-center.db`. Auto-created on first request. WAL mode.
 
 Tables:
 - `agent_hierarchy` — parent-child relationships, descriptions, positions

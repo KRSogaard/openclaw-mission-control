@@ -170,7 +170,7 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
         category: "Agents",
         label: `MC tools in TOOLS.md`,
         status: hasMcTools ? "pass" : "warn",
-        message: hasMcTools ? "Mission Control tools section present" : "MC tools section missing — will be added on next sync",
+        message: hasMcTools ? "Control Center tools section present" : "MC tools section missing — will be added on next sync",
         agentId: agent.id,
       });
     } else {

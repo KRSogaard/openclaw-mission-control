@@ -78,7 +78,7 @@ async function sendCheckIn(taskId: string, agentId: string, sessionKey: string, 
     const ws = getWsClient();
     await ws.rpc("chat.send", {
       sessionKey,
-      message: `[MISSION CONTROL — CHECK-IN] Task "${title}" (ID: ${taskId}). Mission Control restarted. If you already completed this task, please call task.complete again. If still working, call task.update. If you cannot complete it, call task.fail.`,
+      message: `[CONTROL CENTER — CHECK-IN] Task "${title}" (ID: ${taskId}). Control Center restarted. If you already completed this task, please call task.complete again. If still working, call task.update. If you cannot complete it, call task.fail.`,
       idempotencyKey: crypto.randomUUID(),
       deliver: false,
     });
@@ -244,7 +244,7 @@ async function handleTimeout(taskId: string, agentId: string): Promise<void> {
     const ws = getWsClient();
     await ws.rpc("chat.send", {
       sessionKey: task.sessionKey,
-      message: `[MISSION CONTROL] Checking in on task "${task.title}" (ID: ${task.id}). Has this been completed? If so, please use the task.complete tool. If still working, use task.update to report progress. Retry ${newRetryCount}/${settings.maxRetries}.`,
+      message: `[CONTROL CENTER] Checking in on task "${task.title}" (ID: ${task.id}). Has this been completed? If so, please use the task.complete tool. If still working, use task.update to report progress. Retry ${newRetryCount}/${settings.maxRetries}.`,
       idempotencyKey: crypto.randomUUID(),
       deliver: false,
     });
@@ -423,7 +423,7 @@ export async function createTask(
 
 function buildTaskPrompt(title: string, description: string | null, taskId: string): string {
   const parts = [
-    `[MISSION CONTROL — NEW TASK]`,
+    `[CONTROL CENTER — NEW TASK]`,
     `Task ID: ${taskId}`,
     `Title: ${title}`,
   ];
