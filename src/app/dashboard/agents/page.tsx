@@ -109,7 +109,7 @@ export default function DashboardPage() {
                        <Badge
                          key={i}
                          variant="secondary"
-                         className="text-[10px]"
+                         className="text-xs"
                        >
                          {ch.platform}
                          {ch.target ? ` \u2192 ${ch.target}` : ""}

@@ -211,15 +211,15 @@ function TaskCard({
       )}
       <div className="mt-2 flex items-center gap-1.5">
         {task.createdBy && (
-          <span className="text-[10px] text-muted-foreground/50 truncate">
+          <span className="text-xs text-muted-foreground/50 truncate">
             {task.createdBy}
           </span>
         )}
-        <span className="text-[10px] text-muted-foreground/50 ml-auto shrink-0">
+        <span className="text-xs text-muted-foreground/50 ml-auto shrink-0">
           {fmtDate(task.createdAt)}
         </span>
         {task.retryCount > 0 && (
-          <Badge className="text-[10px] bg-amber-900/40 text-amber-400 border-amber-800/40 h-4 px-1.5">
+          <Badge className="text-xs bg-amber-900/40 text-amber-400 border-amber-800/40 h-4 px-1.5">
             ×{task.retryCount}
           </Badge>
         )}
@@ -378,7 +378,7 @@ function DetailPanel({
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-medium text-foreground">{task.title}</h3>
             <Badge
-              className={`mt-1.5 text-[10px] ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
+              className={`mt-1.5 text-xs ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
             >
               {STATUS_LABEL[task.status] ?? task.status}
             </Badge>
@@ -397,7 +397,7 @@ function DetailPanel({
         {task.description && (
           <>
             <div className="p-4">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
                 Description
               </p>
               <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
@@ -410,7 +410,7 @@ function DetailPanel({
 
         {/* ---- Metadata ---- */}
         <div className="p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
             Details
           </p>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
@@ -435,7 +435,7 @@ function DetailPanel({
         {task.response && (
           <>
             <div className="p-4">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
                 Response
               </p>
               <div className="rounded-lg bg-card border border-border p-3">
@@ -469,7 +469,7 @@ function DetailPanel({
 
         {/* ---- Audit log ---- */}
         <div className="p-4 pb-6">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
             Audit Log
           </p>
 
@@ -500,17 +500,17 @@ function DetailPanel({
                       <span className="text-xs font-medium text-foreground">
                         {ev.event.replace(/_/g, " ")}
                       </span>
-                      <span className="text-[10px] text-muted-foreground/50 ml-auto shrink-0">
+                      <span className="text-xs text-muted-foreground/50 ml-auto shrink-0">
                         {fmtTime(ev.timestamp)}
                       </span>
                     </div>
                     {ev.message && (
-                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                      <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
                         {ev.message}
                       </p>
                     )}
                     {ev.actor && (
-                      <p className="mt-0.5 text-[10px] text-muted-foreground/50">
+                      <p className="mt-0.5 text-xs text-muted-foreground/50">
                         {ev.actor}
                       </p>
                     )}
@@ -575,7 +575,7 @@ function SettingsCard({
             min={1}
             className="w-20 rounded bg-muted border border-border px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
-          <span className="text-[10px] text-muted-foreground">min</span>
+          <span className="text-xs text-muted-foreground">min</span>
         </div>
         <div className="flex items-center gap-3">
           <label className="text-xs text-muted-foreground w-24">Max retries</label>
@@ -776,11 +776,11 @@ export default function TasksPage({
                 <div
                   className={`px-3 py-2.5 flex items-center gap-2 border-l-2 ${col.accent} shrink-0`}
                 >
-                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
                     {col.label}
                   </span>
                   {colTasks.length > 0 && (
-                    <Badge className="text-[10px] bg-muted text-muted-foreground h-4 px-1.5 border-transparent">
+                    <Badge className="text-xs bg-muted text-muted-foreground h-4 px-1.5 border-transparent">
                       {colTasks.length}
                     </Badge>
                   )}
@@ -821,7 +821,7 @@ export default function TasksPage({
 
                     {colTasks.length === 0 && !(isTodo && showCreate) && (
                       <div className="flex flex-col items-center gap-2 py-8">
-                        <p className="text-[11px] text-muted-foreground/40">
+                        <p className="text-xs text-muted-foreground/40">
                           {isTodo ? "No tasks in queue" : "No tasks"}
                         </p>
                         {isTodo && (

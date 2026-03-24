@@ -93,7 +93,7 @@ function DraggableCard({
       >
         {agent.isDefault && (
           <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-            <span className="rounded-full bg-emerald-900/80 px-2 py-0.5 text-[10px] font-medium text-emerald-300 ring-1 ring-emerald-700/50">
+            <span className="rounded-full bg-emerald-900/80 px-2 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-emerald-700/50">
               root
             </span>
           </div>
@@ -109,13 +109,13 @@ function DraggableCard({
           >
             {agent.name}
           </Link>
-          <Badge variant="outline" className="w-fit font-mono text-[10px]">
+          <Badge variant="outline" className="w-fit font-mono text-xs">
             {agent.model}
           </Badge>
           {agent.channels.length > 0 && (
             <div className="mt-0.5 flex flex-wrap gap-1">
               {agent.channels.map((ch, idx) => (
-                <Badge key={idx} variant="secondary" className="text-[10px]">
+                <Badge key={idx} variant="secondary" className="text-xs">
                   {ch.platform}{ch.target ? ` \u2192 ${ch.target}` : ""}
                 </Badge>
               ))}
@@ -138,7 +138,7 @@ function DraggableCard({
                   onClick={handleSave}
                   disabled={isSaving}
                   onPointerDown={(e) => e.stopPropagation()}
-                  className="flex-1 rounded bg-sky-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                  className="flex-1 rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
                 >
                   {isSaving ? "Saving..." : "Save"}
                 </button>
@@ -146,7 +146,7 @@ function DraggableCard({
                   onClick={handleCancel}
                   disabled={isSaving}
                   onPointerDown={(e) => e.stopPropagation()}
-                  className="flex-1 rounded bg-muted px-2 py-1 text-[10px] font-medium text-foreground hover:bg-accent disabled:opacity-50"
+                  className="flex-1 rounded bg-muted px-2 py-1 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -198,7 +198,7 @@ function DropSlot({
       ].join(" ")}
     >
       {label && (
-        <span className={`text-[10px] ${isOver ? "text-sky-400" : "text-muted-foreground/50"}`}>
+        <span className={`text-xs ${isOver ? "text-sky-400" : "text-muted-foreground/50"}`}>
           {isOver ? "release" : label}
         </span>
       )}
@@ -232,7 +232,7 @@ function NestSlot({
             : "border-border",
         ].join(" ")}
       >
-        <span className={`text-[10px] ${isOver ? "text-sky-400" : "text-muted-foreground/50"}`}>
+        <span className={`text-xs ${isOver ? "text-sky-400" : "text-muted-foreground/50"}`}>
           {isOver ? "release to nest" : "drop as child"}
         </span>
       </div>
@@ -305,7 +305,7 @@ function OverlayCard({ agent }: { agent: AgentSummary }) {
     <div className="rounded-xl border border-sky-500/70 bg-card px-5 py-3.5 shadow-2xl shadow-sky-500/10 ring-2 ring-sky-500/30 min-w-[200px] max-w-[280px]">
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-semibold text-foreground">{agent.name}</span>
-        <Badge variant="outline" className="w-fit font-mono text-[10px]">
+        <Badge variant="outline" className="w-fit font-mono text-xs">
           {agent.model}
         </Badge>
       </div>

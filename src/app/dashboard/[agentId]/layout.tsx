@@ -73,9 +73,9 @@ export default function AgentLayout({
                 {agent?.name ?? agentId}
               </h2>
               {agent?.isDefault && (
-                <Badge variant="secondary" className="text-[10px]">default</Badge>
+                <Badge variant="secondary" className="text-xs">default</Badge>
               )}
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-xs">
                 {agent?.model ?? "..."}
               </Badge>
             </>

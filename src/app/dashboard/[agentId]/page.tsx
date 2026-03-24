@@ -51,9 +51,9 @@ function AgentAccessCard({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-foreground text-sm">{title}</CardTitle>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
           </div>
-          {isSaving && <span className="text-[10px] text-muted-foreground">Saving...</span>}
+          {isSaving && <span className="text-xs text-muted-foreground">Saving...</span>}
         </div>
       </CardHeader>
       <CardContent>
@@ -70,7 +70,7 @@ function AgentAccessCard({
               Select all
             </span>
             {isWildcard && supportsWildcard && (
-              <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-700">wildcard</Badge>
+              <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-700">wildcard</Badge>
             )}
           </label>
           {!isWildcard && (
@@ -87,7 +87,7 @@ function AgentAccessCard({
                       className="rounded border-border bg-muted text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
                     />
                     <span className="text-sm text-muted-foreground">{a.name}</span>
-                    <span className="text-[10px] text-muted-foreground/50 ml-auto">{a.id}</span>
+                    <span className="text-xs text-muted-foreground/50 ml-auto">{a.id}</span>
                   </label>
                 ))}
               </div>
@@ -303,7 +303,7 @@ export default function AgentDashboardPage({
                   {agent.channels.map((ch, idx) => (
                     <div key={idx} className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
                       <div className="flex items-center gap-1.5">
-                        <Badge variant="outline" className="text-[10px]">{ch.platform}</Badge>
+                        <Badge variant="outline" className="text-xs">{ch.platform}</Badge>
                         {ch.kind === "channel" && ch.target && (
                           <span className="text-sm text-foreground">{ch.target}</span>
                         )}
@@ -318,12 +318,12 @@ export default function AgentDashboardPage({
                         {ch.kind === "channel" && (
                           <Badge
                             variant="outline"
-                            className={`text-[10px] ${ch.requireMention ? "text-amber-400 border-amber-700" : "text-emerald-400 border-emerald-700"}`}
+                            className={`text-xs ${ch.requireMention ? "text-amber-400 border-amber-700" : "text-emerald-400 border-emerald-700"}`}
                           >
                             {ch.requireMention ? "mention required" : "auto-respond"}
                           </Badge>
                         )}
-                        <span className="text-[10px] text-muted-foreground/50">@{ch.accountId}</span>
+                        <span className="text-xs text-muted-foreground/50">@{ch.accountId}</span>
                       </div>
                     </div>
                   ))}
@@ -392,7 +392,7 @@ export default function AgentDashboardPage({
                         </option>
                       ))}
                     </select>
-                    {isSavingModel && <span className="text-[10px] text-muted-foreground">Saving...</span>}
+                    {isSavingModel && <span className="text-xs text-muted-foreground">Saving...</span>}
                   </div>
                 </div>
                 <div className="flex justify-between">
@@ -401,13 +401,13 @@ export default function AgentDashboardPage({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hooks access</span>
-                  <Badge variant={agent.config.hasHooksAccess ? "default" : "outline"} className="text-[10px]">
+                  <Badge variant={agent.config.hasHooksAccess ? "default" : "outline"} className="text-xs">
                     {agent.config.hasHooksAccess ? "yes" : "no"}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Default agent</span>
-                  <Badge variant={agent.isDefault ? "default" : "outline"} className="text-[10px]">
+                  <Badge variant={agent.isDefault ? "default" : "outline"} className="text-xs">
                     {agent.isDefault ? "yes" : "no"}
                   </Badge>
                 </div>

@@ -107,7 +107,7 @@ export default function DashboardLayout({
                     status?.online ? "bg-emerald-500" : "bg-red-500"
                   }`}
                 />
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {status
                     ? status.online
                       ? `Online${status.version ? ` v${status.version}` : ""}`

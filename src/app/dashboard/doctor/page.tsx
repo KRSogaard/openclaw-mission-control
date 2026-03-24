@@ -209,7 +209,7 @@ export default function DoctorPage() {
                               {check.label}
                             </span>
                             {check.agentId && (
-                              <Badge variant="outline" className="text-[10px]">
+                              <Badge variant="outline" className="text-xs">
                                 {check.agentId}
                               </Badge>
                             )}
@@ -220,12 +220,12 @@ export default function DoctorPage() {
                                   size="sm"
                                   onClick={() => handleFix(check.id)}
                                   disabled={fixing === check.id}
-                                  className="h-6 px-2 text-[10px] text-sky-400 border-sky-700/50 hover:bg-sky-900/30 hover:text-sky-300"
+                                  className="h-6 px-2 text-xs text-sky-400 border-sky-700/50 hover:bg-sky-900/30 hover:text-sky-300"
                                 >
                                   {fixing === check.id ? "Fixing..." : "Fix"}
                                 </Button>
                               )}
-                              <Badge className={`text-[10px] ${STATUS_BADGE[check.status]}`}>
+                              <Badge className={`text-xs ${STATUS_BADGE[check.status]}`}>
                                 {check.status}
                               </Badge>
                             </div>
@@ -242,7 +242,7 @@ export default function DoctorPage() {
             );
           })}
 
-          <p className="text-[10px] text-muted-foreground/40">
+          <p className="text-xs text-muted-foreground/40">
             Last run: {new Date(result.timestamp).toLocaleString()}
           </p>
         </>

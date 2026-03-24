@@ -359,7 +359,7 @@ export default function AgentWorkspacePage({
           <ScrollArea className="h-full">
             <div className="p-2">
               <div className="mb-1 flex items-center justify-between px-2">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/50">
                   Files
                 </span>
                 <button
@@ -436,7 +436,7 @@ export default function AgentWorkspacePage({
                       <FileIcon type={entry.type} />
                       <span className="truncate">{entry.name}</span>
                       {entry.type === "file" && (
-                        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/50 group-hover/entry:hidden">
+                        <span className="ml-auto shrink-0 text-xs text-muted-foreground/50 group-hover/entry:hidden">
                           {formatSize(entry.size)}
                         </span>
                       )}
