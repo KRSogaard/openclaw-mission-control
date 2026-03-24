@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/index";
 import { agentTasks } from "@/lib/db/schema";
-import { cancelTask } from "@/lib/task-dispatcher";
+import { cancelTask, retryTask, completeTask } from "@/lib/task-dispatcher";
 import type { AgentTask, ApiResponse } from "@/lib/types";
 
 export async function GET(
@@ -41,6 +41,38 @@ export async function GET(
     const message = err instanceof Error ? err.message : "Unknown error";
     return Response.json(
       { error: { code: "TASK_ERROR", message } } satisfies ApiResponse<AgentTask>,
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; taskId: string }> }
+): Promise<Response> {
+  const { taskId } = await params;
+
+  try {
+    const body = (await request.json()) as { action: "retry" | "complete"; result?: string };
+
+    if (body.action === "retry") {
+      await retryTask(taskId);
+      return Response.json({ data: { ok: true } });
+    }
+
+    if (body.action === "complete") {
+      await completeTask(taskId, body.result ?? "Manually completed by operator");
+      return Response.json({ data: { ok: true } });
+    }
+
+    return Response.json(
+      { error: { code: "INVALID_ACTION", message: "action must be 'retry' or 'complete'" } },
+      { status: 400 }
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return Response.json(
+      { error: { code: "TASK_ERROR", message } },
       { status: 500 }
     );
   }

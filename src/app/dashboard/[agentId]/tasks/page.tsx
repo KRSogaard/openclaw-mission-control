@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, use, useCallback } from "react";
+import Link from "next/link";
 import type {
   AgentTask,
   AgentTaskSettings,
@@ -376,7 +377,12 @@ function DetailPanel({
         {/* ---- Header ---- */}
         <div className="p-4 flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium text-foreground">{task.title}</h3>
+            <Link
+              href={`/dashboard/${agentId}/tasks/${task.id}`}
+              className="text-sm font-medium text-foreground hover:underline"
+            >
+              {task.title}
+            </Link>
             <Badge
               className={`mt-1.5 text-xs ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
             >

@@ -253,6 +253,31 @@ export async function cancelTask(taskId: string): Promise<void> {
   }
 }
 
+export async function retryTask(taskId: string): Promise<void> {
+  const db = getDb();
+  const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
+  if (!task) return;
+
+  if (task.status === "running") {
+    clearRunning(task.agentId);
+  }
+
+  db.update(agentTasks)
+    .set({
+      status: "queued",
+      sessionKey: null,
+      response: null,
+      statusMessage: null,
+      retryCount: 0,
+      updatedAt: Date.now(),
+    })
+    .where(eq(agentTasks.id, taskId))
+    .run();
+
+  logEvent(taskId, "retried", "Manually retried by operator", "operator");
+  await dispatchNext(task.agentId);
+}
+
 export async function createTask(
   agentId: string,
   title: string,

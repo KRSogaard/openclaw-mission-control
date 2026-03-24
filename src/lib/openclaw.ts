@@ -202,6 +202,61 @@ export async function updateAgentModel(agentId: string, modelId: string): Promis
   await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
 }
 
+export type ChatMessage = {
+  role: "user" | "assistant" | "toolResult";
+  text: string;
+  toolUse?: Array<{ tool: string; input: string }>;
+  toolError?: string;
+};
+
+export async function getChatHistory(sessionKey: string): Promise<ChatMessage[]> {
+  const ws = getWsClient();
+  const payload = await ws.rpc("chat.history", { sessionKey });
+  const rawMessages = (payload.messages as Array<Record<string, unknown>>) ?? [];
+
+  return rawMessages.map((m) => {
+    const role = String(m.role) as ChatMessage["role"];
+    const content = m.content;
+
+    if (role === "toolResult") {
+      const text = typeof content === "string" ? content : JSON.stringify(content, null, 2);
+      const parsed = typeof content === "string" ? safeParse(content) : content;
+      return {
+        role,
+        text,
+        toolError: (parsed as Record<string, unknown>)?.status === "error"
+          ? String((parsed as Record<string, unknown>).error ?? "")
+          : undefined,
+      };
+    }
+
+    if (Array.isArray(content)) {
+      const textParts: string[] = [];
+      const toolUses: Array<{ tool: string; input: string }> = [];
+      for (const block of content) {
+        if (block.type === "text") textParts.push(String(block.text));
+        if (block.type === "tool_use") {
+          toolUses.push({
+            tool: String(block.name ?? "unknown"),
+            input: typeof block.input === "string" ? block.input : JSON.stringify(block.input, null, 2),
+          });
+        }
+      }
+      return {
+        role,
+        text: textParts.join("\n"),
+        toolUse: toolUses.length > 0 ? toolUses : undefined,
+      };
+    }
+
+    return { role, text: typeof content === "string" ? content : String(content ?? "") };
+  });
+}
+
+function safeParse(str: string): unknown {
+  try { return JSON.parse(str); } catch { return str; }
+}
+
 export async function updateAgentSubagents(agentId: string, allowAgents: string[]): Promise<void> {
   const raw = await fs.readFile(CONFIG_PATH, "utf-8");
   const config = JSON.parse(raw) as OpenClawConfig;
