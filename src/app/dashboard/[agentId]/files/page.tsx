@@ -633,7 +633,7 @@ export default function AgentWorkspacePage({
                         onValueChange={setEditContent}
                         highlight={highlightCode}
                         padding={16}
-                        className="shiki min-h-full flex-1 font-mono text-sm leading-6 [&_textarea]:outline-none [&_textarea]:!text-transparent"
+                        className="shiki min-h-full min-w-0 flex-1 overflow-x-auto font-mono text-sm leading-6 [&_textarea]:outline-none [&_textarea]:!text-transparent [&_textarea]:whitespace-pre [&_textarea]:!overflow-x-auto [&_pre]:whitespace-pre [&_pre]:!overflow-x-visible"
                         style={{ fontFamily: "var(--font-geist-mono), monospace" }}
                       />
                     </div>
