@@ -29,6 +29,11 @@ function getHighlighter(): Promise<Highlighter> {
   }
   return highlighterPromise;
 }
+import Editor from "react-simple-code-editor";
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -116,9 +121,14 @@ export default function AgentWorkspacePage({
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
+  const highlighterRef = useRef<Highlighter | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const newFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getHighlighter().then((h) => { highlighterRef.current = h; });
+  }, []);
 
   useEffect(() => {
     if (!selectedFile?.content || !selectedFile.language) {
@@ -140,6 +150,22 @@ export default function AgentWorkspacePage({
     });
     return () => { cancelled = true; };
   }, [selectedFile?.content, selectedFile?.language]);
+
+  const highlightCode = useCallback((code: string): string => {
+    const h = highlighterRef.current;
+    const lang = selectedFile?.language;
+    if (!h || !lang) return escapeHtml(code);
+    try {
+      const html = h.codeToHtml(code, {
+        lang,
+        themes: { dark: "github-dark", light: "github-light" },
+      });
+      const inner = html.replace(/^<pre[^>]*><code[^>]*>/, "").replace(/<\/code><\/pre>$/, "");
+      return inner;
+    } catch {
+      return escapeHtml(code);
+    }
+  }, [selectedFile?.language]);
 
   const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp"]);
   function isImageFile(filePath: string): boolean {
@@ -572,23 +598,29 @@ export default function AgentWorkspacePage({
                 </span>
               </div>
               {isEditing ? (
-                <div className="flex flex-1 flex-col overflow-hidden">
-                  <textarea
-                    className="flex-1 resize-none bg-background p-4 font-mono text-sm leading-6 text-foreground outline-none"
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault();
-                        saveFile();
-                      }
-                      if (e.key === "Escape") {
-                        setIsEditing(false);
-                        setEditContent("");
-                      }
-                    }}
-                    spellCheck={false}
-                  />
+                <div
+                  className="flex flex-1 flex-col overflow-hidden"
+                  onKeyDown={(e) => {
+                    if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      saveFile();
+                    }
+                    if (e.key === "Escape") {
+                      setIsEditing(false);
+                      setEditContent("");
+                    }
+                  }}
+                >
+                  <ScrollArea className="flex-1">
+                    <Editor
+                      value={editContent}
+                      onValueChange={setEditContent}
+                      highlight={highlightCode}
+                      padding={16}
+                      className="min-h-full font-mono text-sm leading-6 [&_textarea]:outline-none"
+                      style={{ fontFamily: "var(--font-geist-mono), monospace" }}
+                    />
+                  </ScrollArea>
                   <div className="flex items-center gap-2 border-t border-border px-4 py-2">
                     <Button
                       size="sm"
