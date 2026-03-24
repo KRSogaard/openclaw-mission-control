@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GitBranch, Users, Stethoscope, RotateCcw, Server } from "lucide-react";
+import { GitBranch, Users, Stethoscope, RotateCcw, Server, ListTodo } from "lucide-react";
 import type { ApiResponse, GatewayStatus } from "@/lib/types";
 import {
   Sidebar,
@@ -36,6 +36,12 @@ const NAV_ITEMS = [
     href: "/dashboard/agents",
     icon: Users,
     matchPaths: ["/dashboard/agents"],
+  },
+  {
+    label: "Tasks",
+    href: "/dashboard/tasks",
+    icon: ListTodo,
+    matchPaths: ["/dashboard/tasks"],
   },
   {
     label: "Server",
