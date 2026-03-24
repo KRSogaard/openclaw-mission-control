@@ -670,7 +670,7 @@ export default function AgentWorkspacePage({
                         ))}
                       </div>
                       <div
-                        className="flex-1 text-sm [&_pre]:!bg-transparent [&_pre]:!m-0 [&_pre]:p-4 [&_code]:font-mono [&_.line]:leading-6"
+                        className="min-w-0 flex-1 overflow-hidden text-sm [&_pre]:!bg-transparent [&_pre]:!m-0 [&_pre]:p-4 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:font-mono [&_.line]:leading-6"
                         dangerouslySetInnerHTML={{ __html: highlightedHtml }}
                       />
                     </div>
