@@ -26,16 +26,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_ITEMS = [
   {
-    label: "Hierarchy",
-    href: "/dashboard",
-    icon: GitBranch,
-    matchPaths: ["/dashboard", "/dashboard/hierarchy"],
-  },
-  {
     label: "Agents",
-    href: "/dashboard/agents",
+    href: "/dashboard",
     icon: Users,
-    matchPaths: ["/dashboard/agents"],
+    matchPaths: ["/dashboard", "/dashboard/hierarchy", "/dashboard/agents"],
+    matchPrefix: "/dashboard",
+    excludePrefixes: ["/dashboard/tasks", "/dashboard/server", "/dashboard/settings", "/dashboard/doctor"],
   },
   {
     label: "Tasks",
@@ -147,7 +143,11 @@ export default function DashboardLayout({
             <SidebarGroupContent>
               <SidebarMenu>
                 {NAV_ITEMS.map((item) => {
-                  const isActive = item.matchPaths.includes(pathname);
+                  const exactMatch = item.matchPaths.includes(pathname);
+                  const prefixMatch = "matchPrefix" in item && typeof item.matchPrefix === "string"
+                    && pathname.startsWith(item.matchPrefix)
+                    && !("excludePrefixes" in item && Array.isArray(item.excludePrefixes) && item.excludePrefixes.some((p: string) => pathname.startsWith(p)));
+                  const isActive = exactMatch || prefixMatch;
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton

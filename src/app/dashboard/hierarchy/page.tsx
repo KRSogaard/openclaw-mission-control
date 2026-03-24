@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { AgentsTabs } from "@/components/agents-tabs";
 import type {
   AgentHierarchyNode,
   AgentSummary,
@@ -494,7 +495,8 @@ export default function HierarchyPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <AgentsTabs />
       {toolbar}
       <div className="flex flex-1 overflow-auto">
         <DndContext
