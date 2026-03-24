@@ -667,12 +667,12 @@ export default function AgentWorkspacePage({
                   {highlightedHtml ? (
                     <div className="shiki p-4 font-mono text-sm">
                       {extractLines(highlightedHtml).map((lineHtml, i) => (
-                        <div key={i} className="flex hover:bg-muted/30">
-                          <span className="inline-block w-10 shrink-0 select-none pr-3 text-right text-xs leading-6 text-muted-foreground/40">
+                        <div key={i} className="group flex hover:bg-muted/30">
+                          <span className="sticky left-0 inline-block w-12 shrink-0 select-none border-r border-border bg-muted/30 pr-3 text-right font-mono text-xs leading-6 text-muted-foreground/50 group-hover:text-muted-foreground">
                             {i + 1}
                           </span>
                           <span
-                            className="min-w-0 flex-1 whitespace-pre-wrap break-words leading-6"
+                            className="min-w-0 flex-1 whitespace-pre-wrap break-words pl-4 leading-6"
                             dangerouslySetInnerHTML={{ __html: lineHtml }}
                           />
                         </div>
