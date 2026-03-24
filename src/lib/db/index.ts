@@ -49,8 +49,9 @@ function migrate(db: ReturnType<typeof drizzle<typeof schema>>) {
   db.run(`
     CREATE TABLE IF NOT EXISTS agent_task_settings (
       agent_id TEXT PRIMARY KEY,
-      timeout_minutes INTEGER NOT NULL DEFAULT 30,
-      max_retries INTEGER NOT NULL DEFAULT 3
+      timeout_minutes INTEGER,
+      max_retries INTEGER,
+      max_concurrent INTEGER
     )
   `);
 
@@ -68,6 +69,15 @@ function migrate(db: ReturnType<typeof drizzle<typeof schema>>) {
   `);
 
   db.run(`CREATE INDEX IF NOT EXISTS idx_task_events_task ON agent_task_events(task_id, timestamp)`);
+
+  addColumnIfMissing(db, "agent_task_settings", "max_concurrent", "INTEGER");
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS global_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
 }
 
 function addColumnIfMissing(

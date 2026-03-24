@@ -631,6 +631,7 @@ export default function TasksPage({
   const [settings, setSettings] = useState<AgentTaskSettings>({
     timeoutMinutes: 30,
     maxRetries: 3,
+    maxConcurrent: 1,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

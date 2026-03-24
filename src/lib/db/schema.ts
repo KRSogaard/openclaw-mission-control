@@ -33,6 +33,12 @@ export const agentTaskEvents = sqliteTable("agent_task_events", {
 
 export const agentTaskSettings = sqliteTable("agent_task_settings", {
   agentId: text("agent_id").primaryKey(),
-  timeoutMinutes: integer("timeout_minutes").notNull().default(30),
-  maxRetries: integer("max_retries").notNull().default(3),
+  timeoutMinutes: integer("timeout_minutes"),
+  maxRetries: integer("max_retries"),
+  maxConcurrent: integer("max_concurrent"),
+});
+
+export const globalSettings = sqliteTable("global_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
 });

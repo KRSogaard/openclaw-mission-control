@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GitBranch, Users, Stethoscope, RotateCcw, Server, ListTodo } from "lucide-react";
+import { GitBranch, Users, Stethoscope, RotateCcw, Server, ListTodo, Settings } from "lucide-react";
 import type { ApiResponse, GatewayStatus } from "@/lib/types";
 import {
   Sidebar,
@@ -48,6 +48,12 @@ const NAV_ITEMS = [
     href: "/dashboard/server",
     icon: Server,
     matchPaths: ["/dashboard/server"],
+  },
+  {
+    label: "Settings",
+    href: "/dashboard/settings",
+    icon: Settings,
+    matchPaths: ["/dashboard/settings"],
   },
   {
     label: "Doctor",

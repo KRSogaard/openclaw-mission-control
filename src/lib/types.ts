@@ -89,6 +89,13 @@ export type TaskEvent = {
 export type AgentTaskSettings = {
   timeoutMinutes: number;
   maxRetries: number;
+  maxConcurrent: number;
+};
+
+export type GlobalTaskSettings = {
+  timeoutMinutes: number;
+  maxRetries: number;
+  maxConcurrent: number;
 };
 
 export type FileEntry = {

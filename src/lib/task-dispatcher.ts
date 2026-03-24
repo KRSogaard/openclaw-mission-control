@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { getDb } from "./db/index";
-import { agentTasks, agentTaskSettings, agentTaskEvents } from "./db/schema";
+import { agentTasks, agentTaskSettings, agentTaskEvents, globalSettings } from "./db/schema";
 import { getWsClient } from "./openclaw-ws";
 
 function logEvent(taskId: string, event: string, message: string | null, actor: string | null): void {
@@ -49,13 +49,7 @@ export function recoverOrphanedTasks(): void {
       timeoutMs
     );
 
-    runningTasks.set(task.agentId, {
-      taskId: task.id,
-      agentId: task.agentId,
-      sessionKey: task.sessionKey,
-      runId: "",
-      timeoutTimer,
-    });
+    runningTimers.set(task.id, timeoutTimer);
 
     db.update(agentTasks)
       .set({ updatedAt: Date.now() })
@@ -75,9 +69,7 @@ export function recoverOrphanedTasks(): void {
 
   const agentsWithQueued = [...new Set(queued.map((t) => t.agentId))];
   for (const agentId of agentsWithQueued) {
-    if (!runningTasks.has(agentId)) {
-      dispatchNext(agentId);
-    }
+    dispatchNext(agentId);
   }
 }
 
@@ -104,44 +96,61 @@ export async function checkInTask(taskId: string): Promise<void> {
   await sendCheckIn(taskId, task.agentId, task.sessionKey, task.title);
 }
 
-type RunningTask = {
-  taskId: string;
-  agentId: string;
-  sessionKey: string;
-  runId: string;
-  timeoutTimer: ReturnType<typeof setTimeout>;
-};
 
-const runningTasks = new Map<string, RunningTask>();
+const runningTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-function getSettings(agentId: string): { timeoutMinutes: number; maxRetries: number } {
+function getGlobalDefaults(): { timeoutMinutes: number; maxRetries: number; maxConcurrent: number } {
   const db = getDb();
-  const row = db.select().from(agentTaskSettings).where(eq(agentTaskSettings.agentId, agentId)).get();
+  const rows = db.select().from(globalSettings).all();
+  const map = new Map(rows.map((r) => [r.key, r.value]));
   return {
-    timeoutMinutes: row?.timeoutMinutes ?? 30,
-    maxRetries: row?.maxRetries ?? 3,
+    timeoutMinutes: parseInt(map.get("task_timeout_minutes") ?? "30") || 30,
+    maxRetries: parseInt(map.get("task_max_retries") ?? "3") || 3,
+    maxConcurrent: parseInt(map.get("task_max_concurrent") ?? "1") || 1,
   };
 }
 
-export function getRunningTaskForAgent(agentId: string): RunningTask | undefined {
-  return runningTasks.get(agentId);
+function getSettings(agentId: string): { timeoutMinutes: number; maxRetries: number; maxConcurrent: number } {
+  const db = getDb();
+  const defaults = getGlobalDefaults();
+  const row = db.select().from(agentTaskSettings).where(eq(agentTaskSettings.agentId, agentId)).get();
+  return {
+    timeoutMinutes: row?.timeoutMinutes ?? defaults.timeoutMinutes,
+    maxRetries: row?.maxRetries ?? defaults.maxRetries,
+    maxConcurrent: row?.maxConcurrent ?? defaults.maxConcurrent,
+  };
 }
 
-export async function dispatchNext(agentId: string): Promise<void> {
-  if (runningTasks.has(agentId)) return;
-
+function countRunningTasks(agentId: string): number {
   const db = getDb();
-  const next = db
+  const result = db
+    .select({ count: sql<number>`count(*)` })
+    .from(agentTasks)
+    .where(and(eq(agentTasks.agentId, agentId), eq(agentTasks.status, "running")))
+    .get();
+  return result?.count ?? 0;
+}
+
+
+export async function dispatchNext(agentId: string): Promise<void> {
+  const settings = getSettings(agentId);
+  const running = countRunningTasks(agentId);
+
+  if (running >= settings.maxConcurrent) return;
+
+  const slotsAvailable = settings.maxConcurrent - running;
+  const db = getDb();
+  const queued = db
     .select()
     .from(agentTasks)
     .where(and(eq(agentTasks.agentId, agentId), eq(agentTasks.status, "queued")))
     .orderBy(asc(agentTasks.createdAt))
-    .limit(1)
-    .get();
+    .limit(slotsAvailable)
+    .all();
 
-  if (!next) return;
-
-  await dispatchTask(next.id, agentId);
+  for (const task of queued) {
+    await dispatchTask(task.id, agentId);
+  }
 }
 
 async function dispatchTask(taskId: string, agentId: string): Promise<void> {
@@ -181,7 +190,7 @@ async function dispatchTask(taskId: string, agentId: string): Promise<void> {
       settings.timeoutMinutes * 60 * 1000
     );
 
-    runningTasks.set(agentId, { taskId, agentId, sessionKey, runId, timeoutTimer });
+    runningTimers.set(taskId, timeoutTimer);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Dispatch failed";
     db.update(agentTasks)
@@ -207,7 +216,7 @@ async function handleTimeout(taskId: string, agentId: string): Promise<void> {
   const newRetryCount = task.retryCount + 1;
 
   if (newRetryCount > settings.maxRetries) {
-    clearRunning(agentId);
+    clearTimer(taskId);
     db.update(agentTasks)
       .set({
         status: "failed",
@@ -229,13 +238,12 @@ async function handleTimeout(taskId: string, agentId: string): Promise<void> {
 
   logEvent(taskId, "timeout_retry", `Retry ${newRetryCount}/${settings.maxRetries} — sending check-in`, "system");
 
-  const running = runningTasks.get(agentId);
-  if (!running) return;
+  if (!task.sessionKey) return;
 
   try {
     const ws = getWsClient();
     await ws.rpc("chat.send", {
-      sessionKey: running.sessionKey,
+      sessionKey: task.sessionKey,
       message: `[MISSION CONTROL] Checking in on task "${task.title}" (ID: ${task.id}). Has this been completed? If so, please use the task.complete tool. If still working, use task.update to report progress. Retry ${newRetryCount}/${settings.maxRetries}.`,
       idempotencyKey: crypto.randomUUID(),
       deliver: false,
@@ -245,9 +253,9 @@ async function handleTimeout(taskId: string, agentId: string): Promise<void> {
       () => handleTimeout(taskId, agentId),
       settings.timeoutMinutes * 60 * 1000
     );
-    running.timeoutTimer = timeoutTimer;
+    runningTimers.set(taskId, timeoutTimer);
   } catch {
-    clearRunning(agentId);
+    clearTimer(taskId);
     db.update(agentTasks)
       .set({
         status: "failed",
@@ -261,11 +269,11 @@ async function handleTimeout(taskId: string, agentId: string): Promise<void> {
   }
 }
 
-function clearRunning(agentId: string): void {
-  const running = runningTasks.get(agentId);
-  if (running) {
-    clearTimeout(running.timeoutTimer);
-    runningTasks.delete(agentId);
+function clearTimer(taskId: string): void {
+  const timer = runningTimers.get(taskId);
+  if (timer) {
+    clearTimeout(timer);
+    runningTimers.delete(taskId);
   }
 }
 
@@ -277,7 +285,7 @@ export async function completeTask(
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
   if (!task) return;
 
-  clearRunning(task.agentId);
+  clearTimer(task.id);
 
   db.update(agentTasks)
     .set({
@@ -300,7 +308,7 @@ export async function failTask(
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
   if (!task) return;
 
-  clearRunning(task.agentId);
+  clearTimer(task.id);
 
   db.update(agentTasks)
     .set({
@@ -330,15 +338,12 @@ export async function updateTaskStatus(
 
   logEvent(taskId, "progress", statusMessage, "agent");
 
-  const running = runningTasks.get(task.agentId);
-  if (running && running.taskId === taskId) {
-    const settings = getSettings(task.agentId);
-    clearTimeout(running.timeoutTimer);
-    running.timeoutTimer = setTimeout(
-      () => handleTimeout(taskId, task.agentId),
-      settings.timeoutMinutes * 60 * 1000
-    );
-  }
+  clearTimer(taskId);
+  const settings = getSettings(task.agentId);
+  runningTimers.set(taskId, setTimeout(
+    () => handleTimeout(taskId, task.agentId),
+    settings.timeoutMinutes * 60 * 1000
+  ));
 }
 
 export async function cancelTask(taskId: string): Promise<void> {
@@ -347,7 +352,7 @@ export async function cancelTask(taskId: string): Promise<void> {
   if (!task) return;
 
   if (task.status === "running") {
-    clearRunning(task.agentId);
+    clearTimer(task.id);
   }
 
   db.update(agentTasks)
@@ -368,7 +373,7 @@ export async function retryTask(taskId: string): Promise<void> {
   if (!task) return;
 
   if (task.status === "running") {
-    clearRunning(task.agentId);
+    clearTimer(task.id);
   }
 
   db.update(agentTasks)
