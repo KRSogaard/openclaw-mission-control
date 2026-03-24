@@ -84,7 +84,7 @@ export class OpenClawWsClient {
                 id: "openclaw-control-ui",
                 version: "0.1.0",
                 platform: "linux",
-                mode: "webchat",
+                mode: "cli",
               },
               role: "operator",
               scopes: ["operator.admin"],
