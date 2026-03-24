@@ -665,7 +665,7 @@ export default function AgentWorkspacePage({
               ) : (
                 <ScrollArea className="flex-1">
                   {highlightedHtml ? (
-                    <div className="p-4 font-mono text-sm">
+                    <div className="shiki p-4 font-mono text-sm">
                       {extractLines(highlightedHtml).map((lineHtml, i) => (
                         <div key={i} className="flex hover:bg-muted/30">
                           <span className="inline-block w-10 shrink-0 select-none pr-3 text-right text-xs leading-6 text-muted-foreground/40">
