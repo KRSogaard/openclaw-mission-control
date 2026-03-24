@@ -3,6 +3,7 @@ import { getDb } from "./index";
 import { agentHierarchy } from "./schema";
 import { getAgents } from "../openclaw";
 import { syncToolsToWorkspace } from "../mc-tools";
+import { recoverOrphanedTasks } from "../task-dispatcher";
 
 const SKIP_PREFIXES = ["mc-gateway-"];
 
@@ -77,6 +78,7 @@ function inferSubagentRelations(agentIds: string[]): Map<string, string> {
 export async function getHierarchy() {
   const db = getDb();
   await syncHierarchy();
+  recoverOrphanedTasks();
   return db.select().from(agentHierarchy).all();
 }
 

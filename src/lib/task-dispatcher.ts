@@ -18,6 +18,61 @@ function logEvent(taskId: string, event: string, message: string | null, actor: 
     .run();
 }
 
+let _recovered = false;
+
+export function recoverOrphanedTasks(): void {
+  if (_recovered) return;
+  _recovered = true;
+
+  const db = getDb();
+  const orphaned = db
+    .select()
+    .from(agentTasks)
+    .where(eq(agentTasks.status, "running"))
+    .all();
+
+  for (const task of orphaned) {
+    const settings = getSettings(task.agentId);
+    const elapsed = Date.now() - task.updatedAt;
+    const timeoutMs = settings.timeoutMinutes * 60 * 1000;
+
+    if (elapsed > timeoutMs) {
+      db.update(agentTasks)
+        .set({ status: "queued", sessionKey: null, retryCount: task.retryCount + 1, updatedAt: Date.now() })
+        .where(eq(agentTasks.id, task.id))
+        .run();
+      logEvent(task.id, "recovered", `Re-queued after server restart (was running for ${Math.round(elapsed / 60000)}m)`, "system");
+    } else {
+      const remaining = timeoutMs - elapsed;
+      const timeoutTimer = setTimeout(
+        () => handleTimeout(task.id, task.agentId),
+        remaining
+      );
+      runningTasks.set(task.agentId, {
+        taskId: task.id,
+        agentId: task.agentId,
+        sessionKey: task.sessionKey ?? "",
+        runId: "",
+        timeoutTimer,
+      });
+      logEvent(task.id, "recovered", `Resumed timeout timer after server restart (${Math.round(remaining / 60000)}m remaining)`, "system");
+    }
+  }
+
+  const queued = db
+    .select()
+    .from(agentTasks)
+    .where(eq(agentTasks.status, "queued"))
+    .all();
+
+  const agentsWithQueued = [...new Set(queued.map((t) => t.agentId))];
+  for (const agentId of agentsWithQueued) {
+    if (!runningTasks.has(agentId)) {
+      dispatchNext(agentId);
+    }
+  }
+}
+
 type RunningTask = {
   taskId: string;
   agentId: string;
@@ -206,6 +261,29 @@ export async function completeTask(
   await dispatchNext(task.agentId);
 }
 
+export async function failTask(
+  taskId: string,
+  reason: string | null
+): Promise<void> {
+  const db = getDb();
+  const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
+  if (!task) return;
+
+  clearRunning(task.agentId);
+
+  db.update(agentTasks)
+    .set({
+      status: "failed",
+      statusMessage: reason,
+      updatedAt: Date.now(),
+    })
+    .where(eq(agentTasks.id, taskId))
+    .run();
+
+  logEvent(taskId, "failed", reason, "agent");
+  await dispatchNext(task.agentId);
+}
+
 export async function updateTaskStatus(
   taskId: string,
   statusMessage: string
@@ -318,6 +396,7 @@ function buildTaskPrompt(title: string, description: string | null, taskId: stri
   }
   parts.push(
     `\nWhen you have completed this task, call: task.complete(taskId="${taskId}", result="<summary of what you did>")`,
+    `If you cannot complete this task, call: task.fail(taskId="${taskId}", reason="<why it failed>")`,
     `To report progress, call: task.update(taskId="${taskId}", status="<what you're doing>")`,
     `To assign a subtask to another agent, call: task.create(agentId="<target>", title="<title>", description="<details>")`,
   );

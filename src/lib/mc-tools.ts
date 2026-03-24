@@ -64,6 +64,17 @@ curl -s -X POST ${MC_URL}/api/hooks/task \\
   -d '{"action":"task.update","taskId":"<TASK_ID>","status":"<what you are currently doing>"}'
 \`\`\`
 
+### task.fail
+
+Report that a task cannot be completed. Call this when the task is impossible, blocked, or you've been asked to fail it.
+
+\`\`\`bash
+curl -s -X POST ${MC_URL}/api/hooks/task \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -d '{"action":"task.fail","taskId":"<TASK_ID>","reason":"<why the task failed>"}'
+\`\`\`
+
 ### task.create
 
 Assign a task to another agent. Only use for agents you are allowed to communicate with.
@@ -77,7 +88,8 @@ curl -s -X POST ${MC_URL}/api/hooks/task \\
 
 ### Rules
 
-- Always call \`task.complete\` when you finish a task. If you don't, Mission Control will check in and eventually mark the task as failed.
+- Always call \`task.complete\` when you finish a task, or \`task.fail\` if you cannot complete it.
+- If you don't report status, Mission Control will check in and eventually mark the task as failed.
 - Use \`task.update\` for tasks that take more than a few minutes — it resets the timeout.
 - Tasks arrive via messages prefixed with \`[MISSION CONTROL — NEW TASK]\`. The task ID is in the message.
 

@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
-import { completeTask, updateTaskStatus, createTask } from "@/lib/task-dispatcher";
+import { completeTask, failTask, updateTaskStatus, createTask } from "@/lib/task-dispatcher";
 import { getHooksToken } from "@/lib/mc-tools";
 
 type HookPayload =
   | { action: "task.complete"; taskId: string; result?: string }
+  | { action: "task.fail"; taskId: string; reason?: string }
   | { action: "task.update"; taskId: string; status: string }
   | { action: "task.create"; agentId: string; title: string; description?: string; createdBy?: string };
 
@@ -25,6 +26,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     switch (body.action) {
       case "task.complete": {
         await completeTask(body.taskId, body.result ?? null);
+        return Response.json({ data: { ok: true } });
+      }
+
+      case "task.fail": {
+        await failTask(body.taskId, body.reason ?? null);
         return Response.json({ data: { ok: true } });
       }
 
