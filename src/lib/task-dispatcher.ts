@@ -32,31 +32,39 @@ export function recoverOrphanedTasks(): void {
     .all();
 
   for (const task of orphaned) {
-    const settings = getSettings(task.agentId);
-    const elapsed = Date.now() - task.updatedAt;
-    const timeoutMs = settings.timeoutMinutes * 60 * 1000;
-
-    if (elapsed > timeoutMs) {
+    if (!task.sessionKey) {
       db.update(agentTasks)
-        .set({ status: "queued", sessionKey: null, retryCount: task.retryCount + 1, updatedAt: Date.now() })
+        .set({ status: "queued", retryCount: task.retryCount + 1, updatedAt: Date.now() })
         .where(eq(agentTasks.id, task.id))
         .run();
-      logEvent(task.id, "recovered", `Re-queued after server restart (was running for ${Math.round(elapsed / 60000)}m)`, "system");
-    } else {
-      const remaining = timeoutMs - elapsed;
-      const timeoutTimer = setTimeout(
-        () => handleTimeout(task.id, task.agentId),
-        remaining
-      );
-      runningTasks.set(task.agentId, {
-        taskId: task.id,
-        agentId: task.agentId,
-        sessionKey: task.sessionKey ?? "",
-        runId: "",
-        timeoutTimer,
-      });
-      logEvent(task.id, "recovered", `Resumed timeout timer after server restart (${Math.round(remaining / 60000)}m remaining)`, "system");
+      logEvent(task.id, "recovered", "No session — re-queued", "system");
+      continue;
     }
+
+    const settings = getSettings(task.agentId);
+    const timeoutMs = settings.timeoutMinutes * 60 * 1000;
+
+    const timeoutTimer = setTimeout(
+      () => handleTimeout(task.id, task.agentId),
+      timeoutMs
+    );
+
+    runningTasks.set(task.agentId, {
+      taskId: task.id,
+      agentId: task.agentId,
+      sessionKey: task.sessionKey,
+      runId: "",
+      timeoutTimer,
+    });
+
+    db.update(agentTasks)
+      .set({ updatedAt: Date.now() })
+      .where(eq(agentTasks.id, task.id))
+      .run();
+
+    logEvent(task.id, "recovered", "Server restarted — sending check-in on existing session", "system");
+
+    sendCheckIn(task.id, task.agentId, task.sessionKey, task.title);
   }
 
   const queued = db
@@ -70,6 +78,20 @@ export function recoverOrphanedTasks(): void {
     if (!runningTasks.has(agentId)) {
       dispatchNext(agentId);
     }
+  }
+}
+
+async function sendCheckIn(taskId: string, agentId: string, sessionKey: string, title: string): Promise<void> {
+  try {
+    const ws = getWsClient();
+    await ws.rpc("chat.send", {
+      sessionKey,
+      message: `[MISSION CONTROL — CHECK-IN] Task "${title}" (ID: ${taskId}). Mission Control restarted. If you already completed this task, please call task.complete again. If still working, call task.update. If you cannot complete it, call task.fail.`,
+      idempotencyKey: crypto.randomUUID(),
+      deliver: false,
+    });
+  } catch {
+    logEvent(taskId, "recovered", "Failed to send check-in — will rely on timeout", "system");
   }
 }
 
