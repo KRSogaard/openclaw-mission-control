@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getAgentColor } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 /* ------------------------------------------------------------------ */
@@ -192,23 +193,27 @@ function IconBoard() {
 
 function TaskCard({
   task,
+  agentId,
   isSelected,
   onClick,
 }: {
   task: AgentTask;
+  agentId: string;
   isSelected: boolean;
   onClick: () => void;
 }) {
+  const color = getAgentColor(agentId);
   return (
     <div
       onClick={onClick}
       className={[
-        "cursor-pointer rounded-lg border p-3 transition-colors",
+        "cursor-pointer rounded-lg border p-3 pl-4 transition-colors relative overflow-hidden",
         isSelected
           ? "bg-muted border-border"
           : "bg-card border-border hover:bg-muted",
       ].join(" ")}
     >
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${color.dot}`} />
       <h4 className="text-sm font-medium text-foreground truncate">
         {task.title}
       </h4>
@@ -878,6 +883,7 @@ export default function TasksPage({
                       <TaskCard
                         key={task.id}
                         task={task}
+                        agentId={agentId}
                         isSelected={selectedTask?.id === task.id}
                         onClick={() => setSelectedTask(task)}
                       />

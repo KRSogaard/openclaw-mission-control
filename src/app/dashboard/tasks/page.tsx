@@ -73,10 +73,11 @@ function TaskCard({
 }) {
   return (
     <Card
-      className={`cursor-pointer transition-colors ${isSelected ? "ring-1 ring-ring" : "hover:bg-muted/30"}`}
+      className={`cursor-pointer transition-colors overflow-hidden relative ${isSelected ? "ring-1 ring-ring" : "hover:bg-muted/30"}`}
       onClick={onClick}
     >
-      <CardContent className="p-3 space-y-2">
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${color.dot}`} />
+      <CardContent className="p-3 pl-4 space-y-2">
         <div className="flex items-center gap-2">
           <span className={`size-2 rounded-full shrink-0 ${color.dot}`} />
           <Link
