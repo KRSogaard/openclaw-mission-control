@@ -5,10 +5,10 @@ import Link from "next/link";
 import type { AgentSummary, ApiResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAgentColor } from "@/lib/utils";
+import { TaskCard } from "@/components/task-card";
 
 type GlobalTask = {
   id: string;
@@ -25,8 +25,6 @@ type GlobalTask = {
   createdAt: number;
   updatedAt: number;
 };
-
-import type { AgentColor } from "@/lib/utils";
 
 const STATUS_BADGE: Record<string, string> = {
   queued: "bg-zinc-800 text-zinc-300 border border-zinc-700",
@@ -60,57 +58,7 @@ function formatTime(ts: number): string {
   });
 }
 
-function TaskCard({
-  task,
-  color,
-  isSelected,
-  onClick,
-}: {
-  task: GlobalTask;
-  color: AgentColor;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Card
-      className={`cursor-pointer transition-colors overflow-hidden relative ${isSelected ? "ring-1 ring-ring" : "hover:bg-muted/30"}`}
-      onClick={onClick}
-    >
-      <div className={`absolute left-0 top-0 bottom-0 w-1 ${color.dot}`} />
-      <CardContent className="p-3 pl-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className={`size-2 rounded-full shrink-0 ${color.dot}`} />
-          <Link
-            href={`/dashboard/${task.agentId}/tasks`}
-            onClick={(e) => e.stopPropagation()}
-            className={`text-xs font-medium ${color.text} hover:underline`}
-          >
-            {task.agentName}
-          </Link>
-          {task.retryCount > 0 && (
-            <span className="text-xs text-muted-foreground">retry {task.retryCount}</span>
-          )}
-          <span className="ml-auto text-xs text-muted-foreground shrink-0">
-            {formatTime(task.createdAt)}
-          </span>
-        </div>
-        <Link
-          href={`/dashboard/${task.agentId}/tasks/${task.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="text-sm font-medium text-foreground hover:underline"
-        >
-          {task.title}
-        </Link>
-        {task.statusMessage && (
-          <p className="text-xs text-muted-foreground truncate">{task.statusMessage}</p>
-        )}
-        {task.createdBy && (
-          <span className="text-xs text-muted-foreground/50">by {task.createdBy}</span>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+
 
 export default function GlobalTasksPage() {
   const [tasks, setTasks] = useState<GlobalTask[]>([]);
@@ -327,7 +275,7 @@ export default function GlobalTasksPage() {
                     <TaskCard
                       key={task.id}
                       task={task}
-                      color={getAgentColor(task.agentId)}
+                      agentName={task.agentName}
                       isSelected={selectedTask?.id === task.id}
                       onClick={() => setSelectedTask(task)}
                     />
