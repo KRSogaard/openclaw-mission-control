@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAgentColor } from "@/lib/utils";
 import { TaskCard } from "@/components/task-card";
+import { TaskDetailPanel } from "@/components/task-detail-panel";
 
 type GlobalTask = {
   id: string;
@@ -26,21 +27,6 @@ type GlobalTask = {
   updatedAt: number;
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  queued: "bg-zinc-800 text-zinc-300 border border-zinc-700",
-  running: "bg-sky-900/50 text-sky-400 border border-sky-700/50",
-  completed: "bg-emerald-900/50 text-emerald-400 border border-emerald-700/50",
-  failed: "bg-red-900/50 text-red-400 border border-red-700/50",
-  cancelled: "bg-zinc-800 text-zinc-500 border border-zinc-700",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  queued: "Queued",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
 
 const COLUMNS = [
   { key: "queued", label: "To-Do", accent: "border-l-zinc-500" },
@@ -49,14 +35,6 @@ const COLUMNS = [
   { key: "failed", label: "Failed", accent: "border-l-red-500" },
 ];
 
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 
 
@@ -250,95 +228,58 @@ export default function GlobalTasksPage() {
         </div>
       )}
 
-      <div className="flex flex-1 gap-3 p-4 overflow-x-auto min-h-0">
-        {COLUMNS.map((col) => {
-          const colTasks = grouped.get(col.key) ?? [];
-          return (
-            <div
-              key={col.key}
-              className="flex-1 min-w-[240px] flex flex-col rounded-lg bg-muted/30 overflow-hidden"
-            >
-              <div className={`px-3 py-2.5 flex items-center gap-2 border-l-2 ${col.accent} shrink-0`}>
-                <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  {col.label}
-                </span>
-                {colTasks.length > 0 && (
-                  <Badge className="text-xs bg-muted text-muted-foreground h-5 px-1.5 border-transparent">
-                    {colTasks.length}
-                  </Badge>
-                )}
-              </div>
-
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="p-2 space-y-2">
-                  {colTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      agentName={task.agentName}
-                      isSelected={selectedTask?.id === task.id}
-                      onClick={() => setSelectedTask(task)}
-                    />
-                  ))}
-                  {colTasks.length === 0 && (
-                    <p className="text-xs text-muted-foreground/40 text-center py-8 italic">
-                      All quiet in this sector
-                    </p>
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 flex gap-3 p-4 overflow-x-auto min-w-0">
+          {COLUMNS.map((col) => {
+            const colTasks = grouped.get(col.key) ?? [];
+            return (
+              <div
+                key={col.key}
+                className="flex-1 min-w-[240px] flex flex-col rounded-lg bg-muted/30 overflow-hidden"
+              >
+                <div className={`px-3 py-2.5 flex items-center gap-2 border-l-2 ${col.accent} shrink-0`}>
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                    {col.label}
+                  </span>
+                  {colTasks.length > 0 && (
+                    <Badge className="text-xs bg-muted text-muted-foreground h-5 px-1.5 border-transparent">
+                      {colTasks.length}
+                    </Badge>
                   )}
                 </div>
-              </ScrollArea>
-            </div>
-          );
-        })}
-      </div>
 
-      {selectedTask && (
-        <div className="shrink-0 border-t border-border bg-card p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className={`size-2.5 rounded-full ${getAgentColor(selectedTask.agentId).dot}`} />
-                <Link
-                  href={`/dashboard/${selectedTask.agentId}/tasks`}
-                  className={`text-sm font-medium ${getAgentColor(selectedTask.agentId).text} hover:underline`}
-                >
-                  {selectedTask.agentName}
-                </Link>
-                <Badge className={STATUS_BADGE[selectedTask.status] ?? STATUS_BADGE.queued}>
-                  {STATUS_LABEL[selectedTask.status] ?? selectedTask.status}
-                </Badge>
-                <span className="text-xs text-muted-foreground">{formatTime(selectedTask.createdAt)}</span>
-                {selectedTask.createdBy && (
-                  <span className="text-xs text-muted-foreground/50">by {selectedTask.createdBy}</span>
-                )}
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="p-2 space-y-2">
+                    {colTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        agentName={task.agentName}
+                        isSelected={selectedTask?.id === task.id}
+                        onClick={() => setSelectedTask(task)}
+                      />
+                    ))}
+                    {colTasks.length === 0 && (
+                      <p className="text-xs text-muted-foreground/40 text-center py-8 italic">
+                        All quiet in this sector
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
-              <Link
-                href={`/dashboard/${selectedTask.agentId}/tasks/${selectedTask.id}`}
-                className="text-sm font-medium text-foreground hover:underline"
-              >
-                {selectedTask.title} &rarr;
-              </Link>
-              {selectedTask.description && (
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{selectedTask.description}</p>
-              )}
-              {selectedTask.response && (
-                <div className="rounded bg-muted/50 p-2">
-                  <p className="text-xs text-muted-foreground mb-1">Response</p>
-                  <p className="text-xs text-foreground whitespace-pre-wrap">{selectedTask.response}</p>
-                </div>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedTask(null)}
-              className="shrink-0 text-muted-foreground"
-            >
-              &times;
-            </Button>
-          </div>
+            );
+          })}
         </div>
-      )}
+
+        {selectedTask && (
+          <TaskDetailPanel
+            task={selectedTask}
+            agentName={selectedTask.agentName}
+            onClose={() => setSelectedTask(null)}
+            onTaskChanged={fetchTasks}
+          />
+        )}
+      </div>
     </div>
   );
 }

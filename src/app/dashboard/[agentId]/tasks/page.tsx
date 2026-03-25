@@ -5,7 +5,6 @@ import Link from "next/link";
 import type {
   AgentTask,
   AgentTaskSettings,
-  TaskEvent,
   ApiResponse,
 } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TaskCard } from "@/components/task-card";
-import { Separator } from "@/components/ui/separator";
+import { TaskDetailPanel } from "@/components/task-detail-panel";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                         */
@@ -64,31 +63,7 @@ const COLUMNS: {
   },
 ];
 
-const STATUS_BADGE: Record<string, string> = {
-  queued: "bg-zinc-600",
-  running: "bg-sky-600",
-  completed: "bg-emerald-600",
-  failed: "bg-red-600",
-  cancelled: "bg-muted text-muted-foreground",
-};
 
-const STATUS_LABEL: Record<string, string> = {
-  queued: "Queued",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
-
-const EVENT_DOT: Record<string, string> = {
-  created: "bg-zinc-500",
-  dispatched: "bg-sky-500",
-  progress: "bg-sky-500",
-  timeout_retry: "bg-amber-500",
-  completed: "bg-emerald-500",
-  failed: "bg-red-500",
-  cancelled: "bg-zinc-500",
-};
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -103,13 +78,7 @@ function fmtDate(ts: number): string {
   });
 }
 
-function fmtTime(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
+
 
 /* ------------------------------------------------------------------ */
 /*  Inline SVG icons                                                  */
@@ -279,247 +248,7 @@ function InlineCreateForm({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  DetailPanel (right side-panel with audit log)                     */
-/* ------------------------------------------------------------------ */
 
-function DetailPanel({
-  task,
-  agentId,
-  onClose,
-  onCancel,
-  onCheckIn,
-  onComplete,
-}: {
-  task: AgentTask;
-  agentId: string;
-  onClose: () => void;
-  onCancel: (id: string) => void;
-  onCheckIn: (id: string) => void;
-  onComplete: (id: string) => void;
-}) {
-  const [events, setEvents] = useState<TaskEvent[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-
-  const fetchEvents = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/agents/${agentId}/tasks/${task.id}/events`,
-      );
-      const json = (await res.json()) as ApiResponse<TaskEvent[]>;
-      if (json.data) setEvents(json.data);
-    } catch {
-      /* silent */
-    } finally {
-      setLoadingEvents(false);
-    }
-  }, [agentId, task.id]);
-
-  useEffect(() => {
-    setLoadingEvents(true);
-    fetchEvents();
-  }, [fetchEvents]);
-
-  /* Escape to close */
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  const isActive = task.status === "queued" || task.status === "running";
-
-  return (
-    <div className="w-96 shrink-0 border-l border-border bg-background flex flex-col overflow-hidden">
-      <ScrollArea className="flex-1 min-h-0">
-        {/* ---- Header ---- */}
-        <div className="p-4 flex items-start gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground truncate">
-                {task.title}
-              </span>
-              <Badge
-                className={`text-xs shrink-0 ml-auto ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
-              >
-                {STATUS_LABEL[task.status] ?? task.status}
-              </Badge>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted"
-          >
-            <IconX />
-          </button>
-        </div>
-
-        {/* ---- View details link ---- */}
-        <div className="px-4 pb-3">
-          <Link
-            href={`/dashboard/${agentId}/tasks/${task.id}`}
-            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 transition-colors"
-          >
-            View details
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4.5 2.5l4 3.5-4 3.5" />
-            </svg>
-          </Link>
-        </div>
-
-        <Separator className="bg-border" />
-
-        {/* ---- Description ---- */}
-        {task.description && (
-          <>
-            <div className="p-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                Description
-              </p>
-              <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                {task.description}
-              </p>
-            </div>
-            <Separator className="bg-border" />
-          </>
-        )}
-
-        {/* ---- Metadata ---- */}
-        <div className="p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Details
-          </p>
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
-            {task.createdBy && (
-              <>
-                <span className="text-muted-foreground">Created by</span>
-                <span className="text-foreground">{task.createdBy}</span>
-              </>
-            )}
-            <span className="text-muted-foreground">Created</span>
-            <span className="text-foreground">{fmtDate(task.createdAt)}</span>
-            <span className="text-muted-foreground">Updated</span>
-            <span className="text-foreground">{fmtDate(task.updatedAt)}</span>
-            <span className="text-muted-foreground">Retries</span>
-            <span className="text-foreground">{task.retryCount}</span>
-          </div>
-        </div>
-
-        <Separator className="bg-border" />
-
-        {/* ---- Response ---- */}
-        {task.response && (
-          <>
-            <div className="p-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                Response
-              </p>
-              <div className="rounded-lg bg-card border border-border p-3">
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                  {task.response}
-                </p>
-              </div>
-            </div>
-            <Separator className="bg-border" />
-          </>
-        )}
-
-        {/* ---- Actions ---- */}
-        {isActive && (
-          <>
-            <div className="p-4 flex flex-wrap gap-2">
-              {task.status === "running" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => { await onCheckIn(task.id); fetchEvents(); }}
-                  className="text-xs"
-                >
-                  Check in
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => { await onComplete(task.id); fetchEvents(); }}
-                className="text-xs"
-              >
-                Mark complete
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={async () => {
-                  if (window.confirm("Cancel this task?")) { await onCancel(task.id); fetchEvents(); }
-                }}
-                className="text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs"
-              >
-                Cancel
-              </Button>
-            </div>
-            <Separator className="bg-border" />
-          </>
-        )}
-
-        {/* ---- Captain's Log ---- */}
-        <div className="p-4 pb-6">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-            Captain&apos;s Log
-          </p>
-
-          {loadingEvents ? (
-            <div className="space-y-3">
-              <Skeleton className="h-5 w-3/4 bg-muted rounded" />
-              <Skeleton className="h-5 w-1/2 bg-muted rounded" />
-              <Skeleton className="h-5 w-2/3 bg-muted rounded" />
-            </div>
-          ) : events.length === 0 ? (
-            <p className="text-xs text-muted-foreground/50 italic">No log entries recorded</p>
-          ) : (
-            <div>
-              {events.map((ev, idx) => (
-                <div key={ev.id} className="flex gap-3 pb-4 last:pb-0">
-                  {/* Timeline spine */}
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={`w-2 h-2 rounded-full shrink-0 mt-1 ${EVENT_DOT[ev.event] ?? "bg-zinc-500"}`}
-                    />
-                    {idx < events.length - 1 && (
-                      <div className="w-px flex-1 bg-border mt-1" />
-                    )}
-                  </div>
-                  {/* Event content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xs font-medium text-foreground">
-                        {ev.event.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-xs text-muted-foreground/50 ml-auto shrink-0">
-                        {fmtTime(ev.timestamp)}
-                      </span>
-                    </div>
-                    {ev.message && (
-                      <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                        {ev.message}
-                      </p>
-                    )}
-                    {ev.actor && (
-                      <p className="mt-0.5 text-xs text-muted-foreground/50">
-                        {ev.actor}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  SettingsCard                                                      */
@@ -677,32 +406,6 @@ export default function TasksPage({
     const iv = setInterval(fetchTasks, 5000);
     return () => clearInterval(iv);
   }, [tasks, fetchTasks]);
-
-  async function handleCancel(taskId: string) {
-    await fetch(`/api/agents/${agentId}/tasks/${taskId}`, { method: "DELETE" });
-    if (selectedRef.current?.id === taskId) setSelectedTask(null);
-    await fetchTasks();
-  }
-
-  async function handleCheckIn(taskId: string) {
-    await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "check-in" }),
-    });
-    await fetchTasks();
-  }
-
-  async function handleComplete(taskId: string) {
-    const result = window.prompt("Completion note (optional):");
-    if (result === null) return;
-    await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "complete", result: result || "Manually completed by operator" }),
-    });
-    await fetchTasks();
-  }
 
   /* Group tasks into columns */
   const grouped = new Map<string, AgentTask[]>();
@@ -863,13 +566,10 @@ export default function TasksPage({
 
         {/* Detail side-panel */}
         {selectedTask && (
-          <DetailPanel
+          <TaskDetailPanel
             task={selectedTask}
-            agentId={agentId}
             onClose={() => setSelectedTask(null)}
-            onCancel={handleCancel}
-            onCheckIn={handleCheckIn}
-            onComplete={handleComplete}
+            onTaskChanged={fetchTasks}
           />
         )}
       </div>
