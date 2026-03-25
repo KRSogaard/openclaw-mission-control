@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { eq, and, asc, lt, sql } from "drizzle-orm";
+import { eq, and, asc, lt, inArray, sql } from "drizzle-orm";
 import { getDb } from "./db/index";
 import { agentTasks, agentTaskSettings, agentTaskEvents, globalSettings } from "./db/schema";
 import { getWsClient } from "./openclaw-ws";
@@ -7,6 +7,7 @@ import { getWsClient } from "./openclaw-ws";
 const LOOP_INTERVAL = 60 * 1000;
 let _loopStarted = false;
 let _loopRunning = false;
+let _checkInRunning = false;
 
 export function startTaskLoop(): void {
   if (_loopStarted) return;
@@ -66,6 +67,7 @@ async function checkTimeouts(): Promise<void> {
     const newRetryCount = task.retryCount + 1;
     const staleGuard = and(
       eq(agentTasks.id, task.id),
+      eq(agentTasks.status, "running"),
       eq(agentTasks.retryCount, task.retryCount),
       lt(sql`coalesce(${agentTasks.lastContactAt}, ${agentTasks.updatedAt})`, cutoff),
     );
@@ -170,9 +172,16 @@ export async function dispatchNext(agentId: string): Promise<void> {
 async function dispatchTask(taskId: string, agentId: string): Promise<void> {
   const db = getDb();
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
-  if (!task) return;
+  if (!task || task.status !== "queued") return;
 
   const sessionKey = task.sessionKey ?? `agent:${agentId}:dashboard:mc-${crypto.randomUUID().slice(0, 8)}`;
+
+  const claimResult = db.update(agentTasks)
+    .set({ status: "running", sessionKey, updatedAt: Date.now() })
+    .where(and(eq(agentTasks.id, taskId), eq(agentTasks.status, "queued")))
+    .run();
+  if (!claimResult.changes) return;
+
   const prompt = buildTaskPrompt(task.title, task.description, task.id);
 
   try {
@@ -186,7 +195,7 @@ async function dispatchTask(taskId: string, agentId: string): Promise<void> {
 
     const now = Date.now();
     db.update(agentTasks)
-      .set({ status: "running", sessionKey, updatedAt: now, lastContactAt: now })
+      .set({ lastContactAt: now, updatedAt: now })
       .where(eq(agentTasks.id, taskId))
       .run();
 
@@ -194,11 +203,11 @@ async function dispatchTask(taskId: string, agentId: string): Promise<void> {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Dispatch failed";
     db.update(agentTasks)
-      .set({ status: "failed", statusMessage: errMsg, updatedAt: Date.now() })
+      .set({ status: "queued", sessionKey: null, statusMessage: `Dispatch failed: ${errMsg}`, updatedAt: Date.now() })
       .where(eq(agentTasks.id, taskId))
       .run();
 
-    logEvent(taskId, "failed", `Dispatch failed: ${errMsg}`, "system");
+    logEvent(taskId, "dispatch_retry", `Dispatch failed (will retry): ${errMsg}`, "system");
   }
 }
 
@@ -217,23 +226,30 @@ async function sendCheckIn(taskId: string, agentId: string, sessionKey: string, 
 }
 
 export async function checkInAllRunning(): Promise<void> {
-  const db = getDb();
-  const running = db
-    .select()
-    .from(agentTasks)
-    .where(eq(agentTasks.status, "running"))
-    .all();
+  if (_checkInRunning) return;
+  _checkInRunning = true;
 
-  for (const task of running) {
-    if (!task.sessionKey) continue;
+  try {
+    const db = getDb();
+    const running = db
+      .select()
+      .from(agentTasks)
+      .where(eq(agentTasks.status, "running"))
+      .all();
 
-    db.update(agentTasks)
-      .set({ lastContactAt: Date.now() })
-      .where(eq(agentTasks.id, task.id))
-      .run();
+    for (const task of running) {
+      if (!task.sessionKey) continue;
 
-    logEvent(task.id, "check_in", "Gateway restarted — checking in with agent", "system");
-    await sendCheckIn(task.id, task.agentId, task.sessionKey, task.title);
+      db.update(agentTasks)
+        .set({ lastContactAt: Date.now() })
+        .where(and(eq(agentTasks.id, task.id), eq(agentTasks.status, "running")))
+        .run();
+
+      logEvent(task.id, "check_in", "Gateway restarted — checking in with agent", "system");
+      await sendCheckIn(task.id, task.agentId, task.sessionKey, task.title);
+    }
+  } finally {
+    _checkInRunning = false;
   }
 }
 
@@ -241,6 +257,12 @@ export async function checkInTask(taskId: string): Promise<void> {
   const db = getDb();
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
   if (!task || task.status !== "running" || !task.sessionKey) return;
+
+  const now = Date.now();
+  db.update(agentTasks)
+    .set({ lastContactAt: now, updatedAt: now })
+    .where(and(eq(agentTasks.id, taskId), eq(agentTasks.status, "running")))
+    .run();
 
   logEvent(taskId, "check_in", "Manual check-in triggered by operator", "operator");
   await sendCheckIn(taskId, task.agentId, task.sessionKey, task.title);
@@ -251,10 +273,13 @@ export async function completeTask(taskId: string, result: string | null): Promi
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
   if (!task) return;
 
-  db.update(agentTasks)
+  if (task.status === "completed" || task.status === "failed" || task.status === "cancelled") return;
+
+  const writeResult = db.update(agentTasks)
     .set({ status: "completed", response: result, updatedAt: Date.now() })
-    .where(eq(agentTasks.id, taskId))
+    .where(and(eq(agentTasks.id, taskId), inArray(agentTasks.status, ["queued", "running"])))
     .run();
+  if (!writeResult.changes) return;
 
   logEvent(taskId, "completed", result, "agent");
   await dispatchNext(task.agentId);
@@ -265,10 +290,13 @@ export async function failTask(taskId: string, reason: string | null): Promise<v
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
   if (!task) return;
 
-  db.update(agentTasks)
+  if (task.status === "completed" || task.status === "failed" || task.status === "cancelled") return;
+
+  const writeResult = db.update(agentTasks)
     .set({ status: "failed", statusMessage: reason, updatedAt: Date.now() })
-    .where(eq(agentTasks.id, taskId))
+    .where(and(eq(agentTasks.id, taskId), inArray(agentTasks.status, ["queued", "running"])))
     .run();
+  if (!writeResult.changes) return;
 
   logEvent(taskId, "failed", reason, "agent");
   await dispatchNext(task.agentId);
@@ -276,14 +304,13 @@ export async function failTask(taskId: string, reason: string | null): Promise<v
 
 export async function updateTaskStatus(taskId: string, statusMessage: string): Promise<void> {
   const db = getDb();
-  const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
-  if (!task) return;
 
   const now = Date.now();
-  db.update(agentTasks)
+  const writeResult = db.update(agentTasks)
     .set({ statusMessage, updatedAt: now, lastContactAt: now })
-    .where(eq(agentTasks.id, taskId))
+    .where(and(eq(agentTasks.id, taskId), eq(agentTasks.status, "running")))
     .run();
+  if (!writeResult.changes) return;
 
   logEvent(taskId, "progress", statusMessage, "agent");
 }
@@ -293,14 +320,18 @@ export async function cancelTask(taskId: string): Promise<void> {
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
   if (!task) return;
 
-  db.update(agentTasks)
+  if (task.status === "completed" || task.status === "failed" || task.status === "cancelled") return;
+
+  const wasRunning = task.status === "running";
+  const writeResult = db.update(agentTasks)
     .set({ status: "cancelled", updatedAt: Date.now() })
-    .where(eq(agentTasks.id, taskId))
+    .where(and(eq(agentTasks.id, taskId), inArray(agentTasks.status, ["queued", "running"])))
     .run();
+  if (!writeResult.changes) return;
 
   logEvent(taskId, "cancelled", null, "operator");
 
-  if (task.status === "running") {
+  if (wasRunning) {
     await dispatchNext(task.agentId);
   }
 }
@@ -310,7 +341,7 @@ export async function retryTask(taskId: string): Promise<void> {
   const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
   if (!task) return;
 
-  db.update(agentTasks)
+  const writeResult = db.update(agentTasks)
     .set({
       status: "queued",
       sessionKey: null,
@@ -319,8 +350,9 @@ export async function retryTask(taskId: string): Promise<void> {
       retryCount: 0,
       updatedAt: Date.now(),
     })
-    .where(eq(agentTasks.id, taskId))
+    .where(and(eq(agentTasks.id, taskId), inArray(agentTasks.status, ["completed", "failed", "cancelled"])))
     .run();
+  if (!writeResult.changes) return;
 
   logEvent(taskId, "retried", "Manually retried by operator", "operator");
   await dispatchNext(task.agentId);

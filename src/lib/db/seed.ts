@@ -17,6 +17,7 @@ type HierarchyRow = {
 
 let _hierarchyCache: HierarchyRow[] | null = null;
 let _syncStarted = false;
+let _syncRunning = false;
 let _initialSyncPromise: Promise<void> | null = null;
 
 function getVisibleAgentIds(agents: NonNullable<Awaited<ReturnType<typeof getAgents>>>): string[] {
@@ -29,7 +30,21 @@ function startSyncLoop(): void {
   if (_syncStarted) return;
   _syncStarted = true;
   _initialSyncPromise = runBackgroundSync();
-  setInterval(() => { runBackgroundSync(); }, SYNC_INTERVAL);
+  scheduleSyncLoop();
+}
+
+function scheduleSyncLoop(): void {
+  setTimeout(async () => {
+    if (!_syncRunning) {
+      _syncRunning = true;
+      try {
+        await runBackgroundSync();
+      } finally {
+        _syncRunning = false;
+      }
+    }
+    scheduleSyncLoop();
+  }, SYNC_INTERVAL);
 }
 
 async function runBackgroundSync(): Promise<void> {

@@ -29,6 +29,9 @@ function migrate(sqlite: InstanceType<typeof Database>) {
   if (version < 2) {
     migrateToV2(sqlite);
   }
+  if (version < 3) {
+    migrateToV3(sqlite);
+  }
 }
 
 function tableExists(sqlite: InstanceType<typeof Database>, name: string): boolean {
@@ -138,4 +141,9 @@ function migrateToV2(sqlite: InstanceType<typeof Database>) {
   sqlite.exec("ALTER TABLE agent_tasks ADD COLUMN last_contact_at INTEGER");
   sqlite.exec("UPDATE agent_tasks SET last_contact_at = updated_at WHERE status = 'running'");
   sqlite.pragma("user_version = 2");
+}
+
+function migrateToV3(sqlite: InstanceType<typeof Database>) {
+  sqlite.exec("CREATE INDEX IF NOT EXISTS idx_tasks_status ON agent_tasks(status)");
+  sqlite.pragma("user_version = 3");
 }
