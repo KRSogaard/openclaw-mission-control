@@ -61,13 +61,9 @@ export function TaskCard({
         </div>
       )}
 
-      <Link
-        href={`/dashboard/${task.agentId}/tasks/${task.id}`}
-        onClick={(e) => e.stopPropagation()}
-        className="text-sm font-medium text-foreground hover:underline truncate block"
-      >
+      <p className="text-sm font-medium text-foreground truncate">
         {task.title}
-      </Link>
+      </p>
 
       {task.statusMessage && (
         <p className="mt-1 text-xs text-muted-foreground truncate">
