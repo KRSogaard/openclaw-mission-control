@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirmDialog } from "@/components/confirm-dialog";
 
 type CheckStatus = "pass" | "warn" | "fail";
 
@@ -56,6 +57,7 @@ export default function DoctorPage() {
   const [fixingAll, setFixingAll] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   async function runChecks() {
     setLoading(true);
@@ -103,15 +105,22 @@ export default function DoctorPage() {
     }
   }
 
-  async function handleRestart() {
-    if (!window.confirm("Restart the OpenClaw gateway? Active sessions will be interrupted.")) return;
-    setRestarting(true);
-    try {
-      await fetch("/api/gateway/restart", { method: "POST" });
-      setTimeout(runChecks, 5000);
-    } finally {
-      setRestarting(false);
-    }
+  function handleRestart() {
+    confirm({
+      title: "Restart gateway",
+      description: "Restart the OpenClaw gateway? Active sessions will be interrupted.",
+      confirmLabel: "Restart",
+      destructive: true,
+      onConfirm: async () => {
+        setRestarting(true);
+        try {
+          await fetch("/api/gateway/restart", { method: "POST" });
+          setTimeout(runChecks, 5000);
+        } finally {
+          setRestarting(false);
+        }
+      },
+    });
   }
 
   const categories = result
@@ -304,6 +313,7 @@ export default function DoctorPage() {
           </div>
         </div>
       )}
+      {ConfirmDialog}
     </div>
   );
 }

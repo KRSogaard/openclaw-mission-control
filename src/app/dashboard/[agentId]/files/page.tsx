@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CodeEditor } from "@/components/code-editor";
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { formatBytes } from "@/lib/format";
 
 import {
@@ -97,6 +98,7 @@ export default function AgentWorkspacePage({
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const newFileInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const currentPathRef = useRef(currentPath);
   currentPathRef.current = currentPath;
@@ -258,8 +260,17 @@ export default function AgentWorkspacePage({
     }
   }
 
-  async function deleteEntry(entry: FileEntry) {
-    if (!window.confirm(`Delete ${entry.name}?`)) return;
+  function deleteEntry(entry: FileEntry) {
+    confirm({
+      title: `Delete ${entry.name}`,
+      description: `Are you sure you want to delete "${entry.name}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      destructive: true,
+      onConfirm: () => doDeleteEntry(entry),
+    });
+  }
+
+  async function doDeleteEntry(entry: FileEntry) {
     try {
       const sp = new URLSearchParams({ path: entry.path });
       const res = await fetch(`/api/agents/${agentId}/files/read?${sp}`, {
@@ -602,6 +613,7 @@ export default function AgentWorkspacePage({
           )}
         </div>
       </div>
+      {ConfirmDialog}
     </div>
   );
 }

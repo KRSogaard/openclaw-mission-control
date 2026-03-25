@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getAgentColor } from "@/lib/utils";
 import { formatDateTime, formatTimeOnly } from "@/lib/format";
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { TASK_STATUS_BADGE, TASK_STATUS_LABEL, EVENT_DOT } from "@/lib/constants";
 import { IconX } from "@/components/icons";
 
@@ -71,6 +72,7 @@ export function TaskDetailPanel({
 
   const isActive = task.status === "queued" || task.status === "running";
   const isTerminal = task.status === "completed" || task.status === "failed" || task.status === "cancelled";
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   async function handleAction(action: string, body?: Record<string, string>) {
     await fetch(`/api/agents/${task.agentId}/tasks/${task.id}`, {
@@ -220,9 +222,13 @@ export function TaskDetailPanel({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  if (window.confirm("Cancel this task?")) handleAction("cancel");
-                }}
+                onClick={() => confirm({
+                  title: "Cancel task",
+                  description: "Are you sure you want to cancel this task?",
+                  confirmLabel: "Cancel task",
+                  destructive: true,
+                  onConfirm: () => handleAction("cancel"),
+                })}
                 className="text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs"
               >
                 Cancel
@@ -246,9 +252,13 @@ export function TaskDetailPanel({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  if (window.confirm("Permanently delete this task and its log?")) handleDelete();
-                }}
+                onClick={() => confirm({
+                  title: "Delete task",
+                  description: "Permanently delete this task and its Captain's Log? This cannot be undone.",
+                  confirmLabel: "Delete",
+                  destructive: true,
+                  onConfirm: () => handleDelete(),
+                })}
                 className="text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs"
               >
                 Delete
@@ -310,6 +320,7 @@ export function TaskDetailPanel({
           )}
         </div>
       </ScrollArea>
+      {ConfirmDialog}
     </div>
   );
 }

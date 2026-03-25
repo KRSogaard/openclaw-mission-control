@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp, formatRelative } from "@/lib/format";
+import { useConfirmDialog, usePromptDialog } from "@/components/confirm-dialog";
 import { TASK_STATUS_BADGE, EVENT_DOT } from "@/lib/constants";
 
 type ChatMessage = {
@@ -26,6 +27,8 @@ export default function TaskDetailPage({
 }) {
   const { agentId, taskId } = use(params);
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { prompt: promptDialog, PromptDialog } = usePromptDialog();
   const [task, setTask] = useState<AgentTask | null>(null);
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -104,46 +107,67 @@ export default function TaskDetailPage({
     }
   }
 
-  async function handleComplete() {
-    const result = window.prompt("Completion note (optional):");
-    if (result === null) return;
-    setActing(true);
-    try {
-      await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "complete", result: result || "Manually completed by operator" }),
-      });
-      await fetchTask();
-    } finally {
-      setActing(false);
-    }
+  function handleComplete() {
+    promptDialog({
+      title: "Complete task",
+      description: "Add an optional completion note.",
+      placeholder: "What was done...",
+      confirmLabel: "Mark complete",
+      allowEmpty: true,
+      onConfirm: async (value) => {
+        setActing(true);
+        try {
+          await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "complete", result: value || "Manually completed by operator" }),
+          });
+          await fetchTask();
+        } finally {
+          setActing(false);
+        }
+      },
+    });
   }
 
-  async function handleCancel() {
-    if (!window.confirm("Cancel this task?")) return;
-    setActing(true);
-    try {
-      await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-      await fetchTask();
-    } finally {
-      setActing(false);
-    }
+  function handleCancel() {
+    confirm({
+      title: "Cancel task",
+      description: "Are you sure you want to cancel this task?",
+      confirmLabel: "Cancel task",
+      destructive: true,
+      onConfirm: async () => {
+        setActing(true);
+        try {
+          await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "cancel" }),
+          });
+          await fetchTask();
+        } finally {
+          setActing(false);
+        }
+      },
+    });
   }
 
-  async function handleDelete() {
-    if (!window.confirm("Permanently delete this task and its log?")) return;
-    setActing(true);
-    try {
-      await fetch(`/api/agents/${agentId}/tasks/${taskId}`, { method: "DELETE" });
-      router.push(`/dashboard/${agentId}/tasks`);
-    } finally {
-      setActing(false);
-    }
+  function handleDelete() {
+    confirm({
+      title: "Delete task",
+      description: "Permanently delete this task and its Captain's Log? This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+      onConfirm: async () => {
+        setActing(true);
+        try {
+          await fetch(`/api/agents/${agentId}/tasks/${taskId}`, { method: "DELETE" });
+          router.push(`/dashboard/${agentId}/tasks`);
+        } finally {
+          setActing(false);
+        }
+      },
+    });
   }
 
   if (loading) {
@@ -343,6 +367,8 @@ export default function TaskDetailPage({
           )}
         </CardContent>
       </Card>
+      {ConfirmDialog}
+      {PromptDialog}
     </div>
   );
 }
