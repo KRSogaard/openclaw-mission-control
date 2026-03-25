@@ -126,9 +126,9 @@ export default function DoctorPage() {
     <div className="h-full overflow-y-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-foreground">System Diagnostics</h3>
+          <h3 className="text-sm font-medium text-foreground">Sickbay</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Check gateway connectivity, agent permissions, tool sync, and exec approvals
+            Ship diagnostics — comms, crew permissions, tool sync, and exec approvals
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export default function DoctorPage() {
             disabled={loading}
             className="bg-sky-600 hover:bg-sky-700 text-white"
           >
-            {loading ? "Running..." : result ? "Re-run checks" : "Run diagnostics"}
+            {loading ? "Scanning..." : result ? "Re-scan" : "Run diagnostics"}
           </Button>
         </div>
       </div>
@@ -171,6 +171,31 @@ export default function DoctorPage() {
 
       {result && !loading && (
         <>
+          {result.summary.fail > 0 ? (
+            <div className="flex items-center gap-3 rounded-lg border border-red-700/50 bg-red-950/30 px-4 py-3">
+              <span className="relative flex size-3">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex size-3 rounded-full bg-red-500" />
+              </span>
+              <span className="text-sm font-semibold text-red-400 tracking-wide uppercase">Red Alert</span>
+              <span className="text-xs text-red-400/70">{result.summary.fail} system{result.summary.fail > 1 ? "s" : ""} failing</span>
+            </div>
+          ) : result.summary.warn > 0 ? (
+            <div className="flex items-center gap-3 rounded-lg border border-amber-700/50 bg-amber-950/30 px-4 py-3">
+              <span className="relative flex size-3">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-500 opacity-75" />
+                <span className="relative inline-flex size-3 rounded-full bg-amber-500" />
+              </span>
+              <span className="text-sm font-semibold text-amber-400 tracking-wide uppercase">Yellow Alert</span>
+              <span className="text-xs text-amber-400/70">{result.summary.warn} advisory{result.summary.warn > 1 ? " notices" : ""}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-lg border border-emerald-700/50 bg-emerald-950/30 px-4 py-3">
+              <span className="inline-flex size-3 rounded-full bg-emerald-500" />
+              <span className="text-sm font-semibold text-emerald-400 tracking-wide uppercase">All Systems Nominal</span>
+            </div>
+          )}
+
           <div className="flex gap-3">
             <Card className="flex-1 bg-card border-border">
               <CardContent className="p-4 flex items-center gap-3">

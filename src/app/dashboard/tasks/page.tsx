@@ -350,8 +350,8 @@ export default function GlobalTasksPage() {
                     />
                   ))}
                   {colTasks.length === 0 && (
-                    <p className="text-xs text-muted-foreground/40 text-center py-8">
-                      No tasks
+                    <p className="text-xs text-muted-foreground/40 text-center py-8 italic">
+                      All quiet in this sector
                     </p>
                   )}
                 </div>

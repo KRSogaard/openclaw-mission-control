@@ -109,7 +109,7 @@ export default function ServerPage() {
   if (!stats) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-muted-foreground">Failed to load server stats</p>
+        <p className="text-sm text-muted-foreground italic">Engineering sensors offline</p>
       </div>
     );
   }
@@ -119,7 +119,7 @@ export default function ServerPage() {
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-foreground">Server</h3>
+        <h3 className="text-sm font-medium text-foreground">Engineering</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
           {stats.hostname} &middot; {stats.platform} &middot; {stats.arch}
         </p>
@@ -193,7 +193,7 @@ export default function ServerPage() {
               </div>
             ))}
             {stats.disks.length === 0 && (
-              <p className="text-xs text-muted-foreground">No disk data available</p>
+              <p className="text-xs text-muted-foreground italic">No cargo bay data available</p>
             )}
           </div>
         </CardContent>

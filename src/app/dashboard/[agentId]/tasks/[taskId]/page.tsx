@@ -267,11 +267,11 @@ export default function TaskDetailPage({
 
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-sm text-foreground">Audit Log</CardTitle>
+            <CardTitle className="text-sm text-foreground">Captain&apos;s Log</CardTitle>
         </CardHeader>
         <CardContent>
           {events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events recorded</p>
+            <p className="text-sm text-muted-foreground italic">No log entries recorded</p>
           ) : (
             <div className="relative pl-6 space-y-3">
               <div className="absolute left-[9px] top-1 bottom-1 w-px bg-border" />
@@ -306,7 +306,7 @@ export default function TaskDetailPage({
               <Skeleton className="h-24 bg-muted rounded-md" />
             </div>
           ) : chat.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No conversation yet — task hasn&apos;t been dispatched</p>
+            <p className="text-sm text-muted-foreground italic">No comms yet — awaiting dispatch</p>
           ) : (
             <div className="space-y-3">
               {chat.map((msg, i) => (

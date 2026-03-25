@@ -510,10 +510,10 @@ function DetailPanel({
           </>
         )}
 
-        {/* ---- Audit log ---- */}
+        {/* ---- Captain's Log ---- */}
         <div className="p-4 pb-6">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-            Audit Log
+            Captain&apos;s Log
           </p>
 
           {loadingEvents ? (
@@ -523,7 +523,7 @@ function DetailPanel({
               <Skeleton className="h-5 w-2/3 bg-muted rounded" />
             </div>
           ) : events.length === 0 ? (
-            <p className="text-xs text-muted-foreground/50">No events recorded</p>
+            <p className="text-xs text-muted-foreground/50 italic">No log entries recorded</p>
           ) : (
             <div>
               {events.map((ev, idx) => (
@@ -886,7 +886,7 @@ export default function TasksPage({
                     {colTasks.length === 0 && !(isTodo && showCreate) && (
                       <div className="flex flex-col items-center gap-2 py-8">
                         <p className="text-xs text-muted-foreground/40">
-                          {isTodo ? "No tasks in queue" : "No tasks"}
+                          {isTodo ? "Standing by for orders" : "All quiet in this sector"}
                         </p>
                         {isTodo && (
                           <Button

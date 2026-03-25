@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Users, Stethoscope, Server, ListTodo, Settings } from "lucide-react";
+import { toStardate } from "@/lib/utils";
 import type { ApiResponse, GatewayStatus } from "@/lib/types";
 import {
   Sidebar,
@@ -115,18 +116,21 @@ export default function DashboardLayout({
                 <span className="text-xs text-muted-foreground">
                   {status
                     ? status.online
-                      ? `Online${status.version ? ` v${status.version}` : ""}`
-                      : "Offline"
-                    : "Checking\u2026"}
+                      ? `Comms Online${status.version ? ` v${status.version}` : ""}`
+                      : "Comms Offline"
+                    : "Hailing\u2026"}
                 </span>
               </div>
+              <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wide">
+                SD {toStardate()}
+              </span>
             </div>
           </div>
         </SidebarHeader>
 
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupLabel>Stations</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {NAV_ITEMS.map((item) => {

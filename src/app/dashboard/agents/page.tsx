@@ -54,7 +54,7 @@ export default function DashboardPage() {
           </div>
         ) : agents.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-6">
-            <p className="text-muted-foreground">No agents configured</p>
+            <p className="text-muted-foreground italic">No crew on deck</p>
           </div>
         ) : (
           <div className="divide-y divide-border">
