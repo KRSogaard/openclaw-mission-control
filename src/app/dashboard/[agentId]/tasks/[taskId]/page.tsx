@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { AgentTask, AgentTaskSettings, TaskEvent, ApiResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export default function TaskDetailPage({
   params: Promise<{ agentId: string; taskId: string }>;
 }) {
   const { agentId, taskId } = use(params);
+  const router = useRouter();
   const [task, setTask] = useState<AgentTask | null>(null);
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -122,8 +124,23 @@ export default function TaskDetailPage({
     if (!window.confirm("Cancel this task?")) return;
     setActing(true);
     try {
-      await fetch(`/api/agents/${agentId}/tasks/${taskId}`, { method: "DELETE" });
+      await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
       await fetchTask();
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm("Permanently delete this task and its log?")) return;
+    setActing(true);
+    try {
+      await fetch(`/api/agents/${agentId}/tasks/${taskId}`, { method: "DELETE" });
+      router.push(`/dashboard/${agentId}/tasks`);
     } finally {
       setActing(false);
     }
@@ -193,9 +210,20 @@ export default function TaskDetailPage({
           </Button>
         )}
         {isDone && (
-          <Button size="sm" variant="outline" onClick={handleRetry} disabled={acting}>
-            Retry
-          </Button>
+          <>
+            <Button size="sm" variant="outline" onClick={handleRetry} disabled={acting}>
+              Retry
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleDelete}
+              disabled={acting}
+              className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
+            >
+              Delete
+            </Button>
+          </>
         )}
         {isActive && (
           <Button size="sm" variant="outline" onClick={handleComplete} disabled={acting}>
