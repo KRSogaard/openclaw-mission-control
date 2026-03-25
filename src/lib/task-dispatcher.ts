@@ -6,21 +6,29 @@ import { getWsClient } from "./openclaw-ws";
 
 const LOOP_INTERVAL = 60 * 1000;
 let _loopStarted = false;
+let _loopRunning = false;
 
 export function startTaskLoop(): void {
   if (_loopStarted) return;
   _loopStarted = true;
-  runLoop().catch(() => {});
-  setInterval(() => { runLoop().catch(() => {}); }, LOOP_INTERVAL);
+  scheduleLoop();
 }
 
-async function runLoop(): Promise<void> {
-  try {
-    await dispatchAllQueued();
-    await checkTimeouts();
-  } catch (err) {
-    console.warn("[task-loop]", err instanceof Error ? err.message : String(err));
-  }
+function scheduleLoop(): void {
+  setTimeout(async () => {
+    if (!_loopRunning) {
+      _loopRunning = true;
+      try {
+        await dispatchAllQueued();
+        await checkTimeouts();
+      } catch (err) {
+        console.warn("[task-loop]", err instanceof Error ? err.message : String(err));
+      } finally {
+        _loopRunning = false;
+      }
+    }
+    scheduleLoop();
+  }, LOOP_INTERVAL);
 }
 
 async function dispatchAllQueued(): Promise<void> {
@@ -58,24 +66,26 @@ async function checkTimeouts(): Promise<void> {
     const newRetryCount = task.retryCount + 1;
 
     if (newRetryCount > settings.maxRetries) {
-      db.update(agentTasks)
+      const failResult = db.update(agentTasks)
         .set({
           status: "failed",
           statusMessage: `Timed out after ${settings.maxRetries} retries`,
           retryCount: newRetryCount,
           updatedAt: now,
         })
-        .where(eq(agentTasks.id, task.id))
+        .where(and(eq(agentTasks.id, task.id), eq(agentTasks.retryCount, task.retryCount)))
         .run();
+      if (!failResult.changes) continue;
       logEvent(task.id, "failed", `Timed out after ${settings.maxRetries} retries`, "system");
       await dispatchNext(task.agentId);
       continue;
     }
 
-    db.update(agentTasks)
+    const retryResult = db.update(agentTasks)
       .set({ retryCount: newRetryCount, lastContactAt: now })
-      .where(eq(agentTasks.id, task.id))
+      .where(and(eq(agentTasks.id, task.id), eq(agentTasks.retryCount, task.retryCount)))
       .run();
+    if (!retryResult.changes) continue;
 
     logEvent(task.id, "timeout_retry", `Retry ${newRetryCount}/${settings.maxRetries} — sending check-in`, "system");
 
