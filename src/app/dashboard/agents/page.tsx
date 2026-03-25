@@ -6,6 +6,7 @@ import type { AgentSummary, ApiResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AgentsTabs } from "@/components/agents-tabs";
+import { getAgentColor } from "@/lib/utils";
 
 export default function DashboardPage() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -64,6 +65,7 @@ export default function DashboardPage() {
                 href={`/dashboard/${agent.id}`}
                 className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-muted/50"
               >
+                <span className={`size-2.5 rounded-full shrink-0 ${getAgentColor(agent.id).dot}`} />
                 <div className="w-48 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground">{agent.name}</span>

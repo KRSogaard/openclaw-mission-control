@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAgentColor } from "@/lib/utils";
 
 export default function AgentLayout({
   children,
@@ -43,9 +44,12 @@ export default function AgentLayout({
     { label: "Settings", href: `/dashboard/${agentId}/settings` },
   ];
 
+  const color = getAgentColor(agentId);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-col border-b border-border">
+      <div className="flex shrink-0 flex-col border-b border-border relative">
+        <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${color.dot}`} />
         <div className="flex items-center gap-4 px-6 py-3">
           <Link href="/dashboard">
             <Button variant="ghost" size="sm">
@@ -70,6 +74,7 @@ export default function AgentLayout({
             <Skeleton className="h-5 w-32 bg-muted" />
           ) : (
             <>
+              <span className={`size-2.5 rounded-full ${color.dot}`} />
               <h2 className="text-sm font-medium text-muted-foreground">
                 {agent?.name ?? agentId}
               </h2>

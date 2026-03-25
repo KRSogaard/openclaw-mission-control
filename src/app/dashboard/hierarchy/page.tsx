@@ -11,6 +11,7 @@ import type {
 } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAgentColor } from "@/lib/utils";
 import {
   DndContext,
   DragOverlay,
@@ -79,19 +80,22 @@ function DraggableCard({
     }
   }, [isEditing]);
 
+  const color = getAgentColor(agent.id);
+
   return (
     <div ref={setNodeRef} style={style} className="flex flex-col items-center">
       <div
         {...attributes}
         {...listeners}
         className={[
-          "relative cursor-grab rounded-xl border px-5 py-3.5 select-none",
+          "relative cursor-grab rounded-xl border px-5 py-3.5 select-none overflow-hidden",
           "min-w-[200px] max-w-[280px] transition-colors",
           agent.isDefault
             ? "border-emerald-700/60 bg-card ring-1 ring-emerald-600/20"
             : "border-border bg-card hover:bg-muted",
         ].join(" ")}
       >
+        <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${color.dot}`} />
         {agent.isDefault && (
           <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
             <span className="rounded-full bg-emerald-900/80 px-2 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-emerald-700/50">

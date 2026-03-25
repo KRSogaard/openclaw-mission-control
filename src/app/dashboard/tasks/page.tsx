@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAgentColor } from "@/lib/utils";
 
 type GlobalTask = {
   id: string;
@@ -25,25 +26,7 @@ type GlobalTask = {
   updatedAt: number;
 };
 
-const AGENT_COLORS = [
-  { bg: "bg-sky-900/40", border: "border-sky-700/50", text: "text-sky-400", dot: "bg-sky-500" },
-  { bg: "bg-violet-900/40", border: "border-violet-700/50", text: "text-violet-400", dot: "bg-violet-500" },
-  { bg: "bg-amber-900/40", border: "border-amber-700/50", text: "text-amber-400", dot: "bg-amber-500" },
-  { bg: "bg-emerald-900/40", border: "border-emerald-700/50", text: "text-emerald-400", dot: "bg-emerald-500" },
-  { bg: "bg-rose-900/40", border: "border-rose-700/50", text: "text-rose-400", dot: "bg-rose-500" },
-  { bg: "bg-cyan-900/40", border: "border-cyan-700/50", text: "text-cyan-400", dot: "bg-cyan-500" },
-  { bg: "bg-orange-900/40", border: "border-orange-700/50", text: "text-orange-400", dot: "bg-orange-500" },
-  { bg: "bg-pink-900/40", border: "border-pink-700/50", text: "text-pink-400", dot: "bg-pink-500" },
-  { bg: "bg-teal-900/40", border: "border-teal-700/50", text: "text-teal-400", dot: "bg-teal-500" },
-  { bg: "bg-indigo-900/40", border: "border-indigo-700/50", text: "text-indigo-400", dot: "bg-indigo-500" },
-];
-
-function getAgentColor(agentId: string, colorMap: Map<string, number>): typeof AGENT_COLORS[0] {
-  if (!colorMap.has(agentId)) {
-    colorMap.set(agentId, colorMap.size % AGENT_COLORS.length);
-  }
-  return AGENT_COLORS[colorMap.get(agentId)!];
-}
+import type { AgentColor } from "@/lib/utils";
 
 const STATUS_BADGE: Record<string, string> = {
   queued: "bg-zinc-800 text-zinc-300 border border-zinc-700",
@@ -84,7 +67,7 @@ function TaskCard({
   onClick,
 }: {
   task: GlobalTask;
-  color: typeof AGENT_COLORS[0];
+  color: AgentColor;
   isSelected: boolean;
   onClick: () => void;
 }) {
@@ -140,7 +123,6 @@ export default function GlobalTasksPage() {
   const [createDesc, setCreateDesc] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
-  const colorMap = useState(() => new Map<string, number>())[0];
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -246,7 +228,7 @@ export default function GlobalTasksPage() {
             All
           </Button>
           {agents.map((agentId) => {
-            const c = getAgentColor(agentId, colorMap);
+            const c = getAgentColor(agentId);
             const name = tasks.find((t) => t.agentId === agentId)?.agentName ?? agentId;
             return (
               <Button
@@ -344,7 +326,7 @@ export default function GlobalTasksPage() {
                     <TaskCard
                       key={task.id}
                       task={task}
-                      color={getAgentColor(task.agentId, colorMap)}
+                      color={getAgentColor(task.agentId)}
                       isSelected={selectedTask?.id === task.id}
                       onClick={() => setSelectedTask(task)}
                     />
@@ -366,10 +348,10 @@ export default function GlobalTasksPage() {
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-center gap-2">
-                <span className={`size-2.5 rounded-full ${getAgentColor(selectedTask.agentId, colorMap).dot}`} />
+                <span className={`size-2.5 rounded-full ${getAgentColor(selectedTask.agentId).dot}`} />
                 <Link
                   href={`/dashboard/${selectedTask.agentId}/tasks`}
-                  className={`text-sm font-medium ${getAgentColor(selectedTask.agentId, colorMap).text} hover:underline`}
+                  className={`text-sm font-medium ${getAgentColor(selectedTask.agentId).text} hover:underline`}
                 >
                   {selectedTask.agentName}
                 </Link>
