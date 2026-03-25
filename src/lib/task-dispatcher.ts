@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc, lt, sql } from "drizzle-orm";
 import { getDb } from "./db/index";
 import { agentTasks, agentTaskSettings, agentTaskEvents, globalSettings } from "./db/schema";
 import { getWsClient } from "./openclaw-ws";
@@ -59,11 +59,16 @@ async function checkTimeouts(): Promise<void> {
     const contactTime = task.lastContactAt ?? task.updatedAt;
     const settings = getSettings(task.agentId);
     const timeoutMs = settings.timeoutMinutes * 60 * 1000;
-    const elapsed = now - contactTime;
+    const cutoff = now - timeoutMs;
 
-    if (elapsed < timeoutMs) continue;
+    if (contactTime >= cutoff) continue;
 
     const newRetryCount = task.retryCount + 1;
+    const staleGuard = and(
+      eq(agentTasks.id, task.id),
+      eq(agentTasks.retryCount, task.retryCount),
+      lt(sql`coalesce(${agentTasks.lastContactAt}, ${agentTasks.updatedAt})`, cutoff),
+    );
 
     if (newRetryCount > settings.maxRetries) {
       const failResult = db.update(agentTasks)
@@ -73,7 +78,7 @@ async function checkTimeouts(): Promise<void> {
           retryCount: newRetryCount,
           updatedAt: now,
         })
-        .where(and(eq(agentTasks.id, task.id), eq(agentTasks.retryCount, task.retryCount)))
+        .where(staleGuard)
         .run();
       if (!failResult.changes) continue;
       logEvent(task.id, "failed", `Timed out after ${settings.maxRetries} retries`, "system");
@@ -83,7 +88,7 @@ async function checkTimeouts(): Promise<void> {
 
     const retryResult = db.update(agentTasks)
       .set({ retryCount: newRetryCount, lastContactAt: now })
-      .where(and(eq(agentTasks.id, task.id), eq(agentTasks.retryCount, task.retryCount)))
+      .where(staleGuard)
       .run();
     if (!retryResult.changes) continue;
 
