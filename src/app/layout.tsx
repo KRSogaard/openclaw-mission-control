@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Control Center",
-  description: "Sidecar dashboard for OpenClaw",
+  title: "Bridge Command",
+  description: "Sidecar bridge for OpenClaw",
 };
 
 export default function RootLayout({

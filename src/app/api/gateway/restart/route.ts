@@ -1,5 +1,6 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { checkInAllRunning } from "@/lib/task-dispatcher";
 
 const execAsync = promisify(exec);
 
@@ -8,6 +9,11 @@ export async function POST(): Promise<Response> {
     const { stdout, stderr } = await execAsync("openclaw gateway restart", {
       timeout: 30_000,
     });
+
+    setTimeout(() => {
+      checkInAllRunning().catch(() => {});
+    }, 5_000);
+
     return Response.json({
       data: {
         ok: true,

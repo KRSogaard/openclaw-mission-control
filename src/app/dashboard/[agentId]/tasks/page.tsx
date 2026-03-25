@@ -52,7 +52,14 @@ const COLUMNS: {
     label: "Failed",
     accent: "border-l-red-500",
     dot: "bg-red-500",
-    statuses: ["failed", "cancelled"],
+    statuses: ["failed"],
+  },
+  {
+    key: "cancelled",
+    label: "Cancelled",
+    accent: "border-l-zinc-500",
+    dot: "bg-zinc-500",
+    statuses: ["cancelled"],
   },
 ];
 
@@ -328,37 +335,37 @@ function DetailPanel({
   agentId,
   onClose,
   onCancel,
+  onCheckIn,
+  onComplete,
 }: {
   task: AgentTask;
   agentId: string;
   onClose: () => void;
   onCancel: (id: string) => void;
+  onCheckIn: (id: string) => void;
+  onComplete: (id: string) => void;
 }) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
 
-  /* Fetch audit events */
-  useEffect(() => {
-    let dead = false;
-    async function load() {
-      setLoadingEvents(true);
-      try {
-        const res = await fetch(
-          `/api/agents/${agentId}/tasks/${task.id}/events`,
-        );
-        const json = (await res.json()) as ApiResponse<TaskEvent[]>;
-        if (!dead && json.data) setEvents(json.data);
-      } catch {
-        /* silent */
-      } finally {
-        if (!dead) setLoadingEvents(false);
-      }
+  const fetchEvents = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/agents/${agentId}/tasks/${task.id}/events`,
+      );
+      const json = (await res.json()) as ApiResponse<TaskEvent[]>;
+      if (json.data) setEvents(json.data);
+    } catch {
+      /* silent */
+    } finally {
+      setLoadingEvents(false);
     }
-    load();
-    return () => {
-      dead = true;
-    };
   }, [agentId, task.id]);
+
+  useEffect(() => {
+    setLoadingEvents(true);
+    fetchEvents();
+  }, [fetchEvents]);
 
   /* Escape to close */
   useEffect(() => {
@@ -377,17 +384,16 @@ function DetailPanel({
         {/* ---- Header ---- */}
         <div className="p-4 flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <Link
-              href={`/dashboard/${agentId}/tasks/${task.id}`}
-              className="text-sm font-medium text-foreground hover:underline"
-            >
-              {task.title}
-            </Link>
-            <Badge
-              className={`mt-1.5 text-xs ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
-            >
-              {STATUS_LABEL[task.status] ?? task.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground truncate">
+                {task.title}
+              </span>
+              <Badge
+                className={`text-xs shrink-0 ml-auto ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
+              >
+                {STATUS_LABEL[task.status] ?? task.status}
+              </Badge>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -395,6 +401,19 @@ function DetailPanel({
           >
             <IconX />
           </button>
+        </div>
+
+        {/* ---- View details link ---- */}
+        <div className="px-4 pb-3">
+          <Link
+            href={`/dashboard/${agentId}/tasks/${task.id}`}
+            className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+          >
+            View details
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4.5 2.5l4 3.5-4 3.5" />
+            </svg>
+          </Link>
         </div>
 
         <Separator className="bg-border" />
@@ -454,19 +473,37 @@ function DetailPanel({
           </>
         )}
 
-        {/* ---- Cancel action ---- */}
+        {/* ---- Actions ---- */}
         {isActive && (
           <>
-            <div className="p-4">
+            <div className="p-4 flex flex-wrap gap-2">
+              {task.status === "running" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => { await onCheckIn(task.id); fetchEvents(); }}
+                  className="text-xs"
+                >
+                  Check in
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => { await onComplete(task.id); fetchEvents(); }}
+                className="text-xs"
+              >
+                Mark complete
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  if (window.confirm("Cancel this task?")) onCancel(task.id);
+                onClick={async () => {
+                  if (window.confirm("Cancel this task?")) { await onCancel(task.id); fetchEvents(); }
                 }}
                 className="text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs"
               >
-                Cancel task
+                Cancel
               </Button>
             </div>
             <Separator className="bg-border" />
@@ -694,6 +731,26 @@ export default function TasksPage({
     await fetchTasks();
   }
 
+  async function handleCheckIn(taskId: string) {
+    await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "check-in" }),
+    });
+    await fetchTasks();
+  }
+
+  async function handleComplete(taskId: string) {
+    const result = window.prompt("Completion note (optional):");
+    if (result === null) return;
+    await fetch(`/api/agents/${agentId}/tasks/${taskId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "complete", result: result || "Manually completed by operator" }),
+    });
+    await fetchTasks();
+  }
+
   /* Group tasks into columns */
   const grouped = new Map<string, AgentTask[]>();
   for (const col of COLUMNS) {
@@ -858,6 +915,8 @@ export default function TasksPage({
             agentId={agentId}
             onClose={() => setSelectedTask(null)}
             onCancel={handleCancel}
+            onCheckIn={handleCheckIn}
+            onComplete={handleComplete}
           />
         )}
       </div>

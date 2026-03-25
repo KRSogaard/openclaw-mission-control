@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RotateCcw } from "lucide-react";
 import type { ApiResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ const STATUS_BADGE: Record<CheckStatus, string> = {
   fail: "bg-red-900/50 text-red-400 border border-red-700/50",
 };
 
-const FIXABLE_PREFIXES = ["hooks-token-", "exec-default-policy", "exec-", "tools-mc-"];
+const FIXABLE_PREFIXES = ["hooks-token-", "exec-default-policy", "exec-default-security", "exec-default-fallback", "exec-", "tools-exec-settings", "tools-mc-"];
 function isFixable(checkId: string, status: CheckStatus): boolean {
   if (status === "pass") return false;
   return FIXABLE_PREFIXES.some((p) => checkId.startsWith(p));
@@ -53,6 +54,7 @@ export default function DoctorPage() {
   const [loading, setLoading] = useState(false);
   const [fixing, setFixing] = useState<string | null>(null);
   const [fixingAll, setFixingAll] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function runChecks() {
@@ -101,6 +103,17 @@ export default function DoctorPage() {
     }
   }
 
+  async function handleRestart() {
+    if (!window.confirm("Restart the OpenClaw gateway? Active sessions will be interrupted.")) return;
+    setRestarting(true);
+    try {
+      await fetch("/api/gateway/restart", { method: "POST" });
+      setTimeout(runChecks, 5000);
+    } finally {
+      setRestarting(false);
+    }
+  }
+
   const categories = result
     ? [...new Set(result.checks.map((c) => c.category))]
     : [];
@@ -119,6 +132,14 @@ export default function DoctorPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleRestart}
+            disabled={restarting}
+          >
+            <RotateCcw className={`size-4 ${restarting ? "animate-spin" : ""}`} />
+            {restarting ? "Restarting..." : "Restart Gateway"}
+          </Button>
           {hasFixable && (
             <Button
               variant="outline"

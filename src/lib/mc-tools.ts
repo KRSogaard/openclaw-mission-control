@@ -37,10 +37,10 @@ function generateSection(): string {
 
 ---
 
-## Control Center Tools
+## Bridge Command Tools
 
-> Auto-managed by Control Center. Do not edit this section manually.
-> When assigned a task by Control Center, use these tools to report status via \`exec\`.
+> Auto-managed by Bridge Command. Do not edit this section manually.
+> When assigned a task by Bridge Command, use these tools to report status via \`exec\`.
 
 ### task.complete
 
@@ -55,7 +55,7 @@ curl -s -X POST ${MC_URL}/api/hooks/task \\
 
 ### task.update
 
-Report progress on a running task. Call this periodically for long-running work so Control Center knows you're still active.
+Report progress on a running task. Call this periodically for long-running work so Bridge Command knows you're still active.
 
 \`\`\`bash
 curl -s -X POST ${MC_URL}/api/hooks/task \\
@@ -89,9 +89,9 @@ curl -s -X POST ${MC_URL}/api/hooks/task \\
 ### Rules
 
 - Always call \`task.complete\` when you finish a task, or \`task.fail\` if you cannot complete it.
-- If you don't report status, Control Center will check in and eventually mark the task as failed.
+- If you don't report status, Bridge Command will check in and eventually mark the task as failed.
 - Use \`task.update\` for tasks that take more than a few minutes — it resets the timeout.
-- Tasks arrive via messages prefixed with \`[CONTROL CENTER — NEW TASK]\`. The task ID is in the message.
+- Tasks arrive via messages prefixed with \`[BRIDGE COMMAND — NEW TASK]\`. The task ID is in the message.
 
 ${END_MARKER}`;
 }

@@ -1,7 +1,7 @@
 import type { AgentSummary, AgentView, AgentChannel } from "./types";
 import { getAgents, getAgent } from "./openclaw";
 
-type InternalAgentLike = Awaited<ReturnType<typeof getAgents>>[number];
+type InternalAgentLike = NonNullable<Awaited<ReturnType<typeof getAgents>>>[number];
 type InternalAgentDetailLike = NonNullable<Awaited<ReturnType<typeof getAgent>>>;
 
 export function formatModelName(raw: string): string {

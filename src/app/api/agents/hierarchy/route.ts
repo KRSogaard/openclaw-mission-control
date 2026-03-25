@@ -41,7 +41,7 @@ export async function GET(): Promise<Response> {
     ]);
 
     const agentMap = new Map(
-      internalAgents
+      (internalAgents ?? [])
         .filter((a) => !a.id.startsWith("mc-gateway-"))
         .map((a) => [a.id, toAgentSummary(a)])
     );

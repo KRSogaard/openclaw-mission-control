@@ -93,7 +93,7 @@ export class OpenClawWsClient {
               permissions: {},
               auth: { token: OPENCLAW_TOKEN },
               locale: "en-US",
-              userAgent: "revoco-control-center/0.1.0",
+              userAgent: "revoco-bridge-command/0.1.0",
             },
           });
           return;

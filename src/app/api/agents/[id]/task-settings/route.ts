@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/index";
 import { agentTaskSettings, globalSettings } from "@/lib/db/schema";
+import { dispatchNext } from "@/lib/task-dispatcher";
 import type { AgentTaskSettings, ApiResponse } from "@/lib/types";
 
 function getDefaults(): AgentTaskSettings {
@@ -73,6 +74,8 @@ export async function PATCH(
         })
         .run();
     }
+
+    dispatchNext(id).catch(() => {});
 
     return Response.json({ data: { ok: true } });
   } catch (err) {

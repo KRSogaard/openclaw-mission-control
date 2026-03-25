@@ -7,7 +7,7 @@ export async function GET(): Promise<Response> {
   try {
     const [agents, rows] = await Promise.all([getAgents(), getHierarchy()]);
     const descMap = new Map(rows.map((r) => [r.agentId, r.description]));
-    const summaries = agents
+    const summaries = (agents ?? [])
       .filter((a) => !a.id.startsWith("mc-gateway-"))
       .map((a) => toAgentSummary(a, descMap.get(a.id)));
     return Response.json({ data: summaries } satisfies ApiResponse<AgentSummary[]>);

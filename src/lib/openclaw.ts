@@ -129,13 +129,30 @@ function resolveHome(p: string): string {
   return path.resolve(p);
 }
 
-async function readConfig(): Promise<OpenClawConfig> {
+const CONFIG_CACHE_TTL = 30_000;
+let _configCache: { data: OpenClawConfig; expiry: number } | null = null;
+
+async function readConfig(): Promise<OpenClawConfig | null> {
+  if (_configCache && Date.now() < _configCache.expiry) {
+    return _configCache.data;
+  }
+
   try {
     const raw = await fs.readFile(CONFIG_PATH, "utf-8");
-    return JSON.parse(raw) as OpenClawConfig;
-  } catch {
-    return {};
+    const data = JSON.parse(raw) as OpenClawConfig;
+    _configCache = { data, expiry: Date.now() + CONFIG_CACHE_TTL };
+    return data;
+  } catch (err) {
+    console.warn(
+      "[bridge-command] Failed to read OpenClaw config:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return null;
   }
+}
+
+export function invalidateConfigCache(): void {
+  _configCache = null;
 }
 
 function resolveModel(
@@ -200,6 +217,7 @@ export async function updateAgentModel(agentId: string, modelId: string): Promis
 
   agent.model = modelId;
   await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  invalidateConfigCache();
 }
 
 export type ChatMessage = {
@@ -273,6 +291,7 @@ export async function updateAgentSubagents(agentId: string, allowAgents: string[
   if (!agent.subagents) agent.subagents = {};
   agent.subagents.allowAgents = allowAgents;
   await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  invalidateConfigCache();
 }
 
 export async function updateAgentToAgent(agentId: string, peers: string[]): Promise<void> {
@@ -300,6 +319,7 @@ export async function updateAgentToAgent(agentId: string, peers: string[]): Prom
 
   a2a.allow = [...newAllow];
   await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  invalidateConfigCache();
 }
 
 export async function getGatewayStatus(): Promise<GatewayStatus> {
@@ -314,13 +334,14 @@ export async function getGatewayStatus(): Promise<GatewayStatus> {
     const config = await readConfig();
     return {
       online: false,
-      version: config.meta?.lastTouchedVersion ?? null,
+      version: config?.meta?.lastTouchedVersion ?? null,
     };
   }
 }
 
-export async function getAgents(): Promise<InternalAgent[]> {
+export async function getAgents(): Promise<InternalAgent[] | null> {
   const config = await readConfig();
+  if (!config) return null;
 
   const defaultModel = config.agents?.defaults?.model?.primary ?? "unknown";
   const globalWorkspace = config.agents?.defaults?.workspace ?? DEFAULT_WORKSPACE;
@@ -361,7 +382,9 @@ export async function getAgents(): Promise<InternalAgent[]> {
 
 export async function getAgent(agentId: string): Promise<InternalAgentDetail | null> {
   const config = await readConfig();
+  if (!config) return null;
   const agents = await getAgents();
+  if (!agents) return null;
   const agent = agents.find((a) => a.id === agentId);
   if (!agent) return null;
 

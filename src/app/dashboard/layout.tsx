@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GitBranch, Users, Stethoscope, RotateCcw, Server, ListTodo, Settings } from "lucide-react";
+import { Users, Stethoscope, Server, ListTodo, Settings } from "lucide-react";
 import type { ApiResponse, GatewayStatus } from "@/lib/types";
 import {
   Sidebar,
@@ -65,7 +65,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [status, setStatus] = useState<GatewayStatus | null>(null);
-  const [restarting, setRestarting] = useState(false);
   const pathname = usePathname();
 
   async function fetchStatus() {
@@ -83,18 +82,6 @@ export default function DashboardLayout({
     const interval = setInterval(fetchStatus, 15_000);
     return () => clearInterval(interval);
   }, []);
-
-  async function handleRestart() {
-    if (!window.confirm("Restart the OpenClaw gateway? Active sessions will be interrupted.")) return;
-    setRestarting(true);
-    try {
-      await fetch("/api/gateway/restart", { method: "POST" });
-      setStatus({ online: false, version: null });
-      setTimeout(fetchStatus, 5000);
-    } finally {
-      setRestarting(false);
-    }
-  }
 
   return (
     <SidebarProvider>
@@ -118,7 +105,7 @@ export default function DashboardLayout({
               </svg>
             </div>
             <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-semibold tracking-tight">Control Center</span>
+              <span className="text-sm font-semibold tracking-tight">Bridge Command</span>
               <div className="flex items-center gap-1.5">
                 <span
                   className={`inline-block size-1.5 rounded-full ${
@@ -167,15 +154,7 @@ export default function DashboardLayout({
         </SidebarContent>
 
         <SidebarFooter>
-          <div className="flex items-center justify-center gap-1 group-data-[collapsible=icon]:justify-center">
-            <button
-              onClick={handleRestart}
-              disabled={restarting}
-              title="Restart OpenClaw gateway"
-              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-            >
-              <RotateCcw className={`size-4 ${restarting ? "animate-spin" : ""}`} />
-            </button>
+          <div className="flex items-center justify-center">
             <ThemeToggle />
           </div>
         </SidebarFooter>
@@ -192,7 +171,7 @@ export default function DashboardLayout({
               href="/dashboard"
               className="transition-colors hover:text-foreground"
             >
-              Dashboard
+              The Bridge
             </Link>
             {pathname !== "/dashboard" &&
               pathname !== "/dashboard/hierarchy" && (

@@ -68,6 +68,39 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
     });
   }
 
+  // Tools.exec config in openclaw.json
+  type OpenClawConfig = {
+    tools?: { allow?: string[]; exec?: { security?: string; ask?: string } };
+  };
+  const openclawConfig = await readJsonSafe<OpenClawConfig>(
+    path.join(OPENCLAW_HOME, "openclaw.json"),
+  );
+  if (openclawConfig) {
+    const execInAllow = openclawConfig.tools?.allow?.includes("exec") ?? false;
+    checks.push({
+      id: "tools-exec-allowed",
+      category: "Exec",
+      label: "Exec in tools.allow",
+      status: execInAllow ? "pass" : "fail",
+      message: execInAllow
+        ? "exec is in tools.allow list"
+        : "exec missing from tools.allow — agents cannot use exec at all",
+    });
+
+    const execSecurity = openclawConfig.tools?.exec?.security;
+    const execAsk = openclawConfig.tools?.exec?.ask;
+    const toolExecOk = execSecurity === "full" && execAsk === "off";
+    checks.push({
+      id: "tools-exec-settings",
+      category: "Exec",
+      label: "tools.exec security settings",
+      status: toolExecOk ? "pass" : "fail",
+      message: toolExecOk
+        ? "tools.exec.security=full, ask=off"
+        : `security: ${execSecurity ?? "not set (defaults to allowlist)"}, ask: ${execAsk ?? "not set (defaults to on-miss)"} — set security=full and ask=off for headless exec`,
+    });
+  }
+
   // Hooks token file
   const tokenExists = await fileExists(TOKEN_FILE);
   if (tokenExists) {
@@ -110,8 +143,8 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
 
   // Exec approvals
   type ExecApprovals = {
-    defaults?: { policy?: string; ask?: string };
-    agents?: Record<string, { policy?: string; ask?: string }>;
+    defaults?: { policy?: string; ask?: string; security?: string; askFallback?: string };
+    agents?: Record<string, { policy?: string; ask?: string; allowlist?: unknown[] }>;
   };
   const approvals = await readJsonSafe<ExecApprovals>(EXEC_APPROVALS_FILE);
 
@@ -120,27 +153,51 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
       id: "exec-approvals-file",
       category: "Exec",
       label: "Exec approvals file",
-      status: "warn",
-      message: `Not found at ${EXEC_APPROVALS_FILE} — agents will be prompted for every exec`,
+      status: "fail",
+      message: `Not found at ${EXEC_APPROVALS_FILE} — agents cannot exec without this file`,
     });
   } else {
     const defaultPolicy = approvals.defaults?.policy;
     const defaultAsk = approvals.defaults?.ask;
+    const defaultSecurity = approvals.defaults?.security;
+    const defaultAskFallback = approvals.defaults?.askFallback;
 
+    const policyOk = defaultPolicy === "allow" && defaultAsk === "never";
     checks.push({
       id: "exec-default-policy",
       category: "Exec",
       label: "Default exec policy",
-      status: defaultPolicy === "allow" && defaultAsk === "never" ? "pass" : "warn",
-      message: defaultPolicy === "allow"
-        ? "Default policy: allow (auto-approve)"
-        : `Default policy: ${defaultPolicy ?? "not set"} — agents may be prompted for exec`,
+      status: policyOk ? "pass" : "fail",
+      message: policyOk
+        ? "Default policy: allow, ask: never"
+        : `policy: ${defaultPolicy ?? "not set"}, ask: ${defaultAsk ?? "not set"} — need policy=allow and ask=never`,
+    });
+
+    const securityOk = defaultSecurity === "full";
+    checks.push({
+      id: "exec-default-security",
+      category: "Exec",
+      label: "Default exec security mode",
+      status: securityOk ? "pass" : "fail",
+      message: securityOk
+        ? "Security: full (no allowlist restrictions)"
+        : `security: ${defaultSecurity ?? "not set"} — defaults to allowlist mode which blocks most commands. Set to "full"`,
+    });
+
+    const fallbackOk = defaultAskFallback === "full";
+    checks.push({
+      id: "exec-default-fallback",
+      category: "Exec",
+      label: "Exec askFallback (headless)",
+      status: fallbackOk ? "pass" : "fail",
+      message: fallbackOk
+        ? "askFallback: full (exec works without approval UI)"
+        : `askFallback: ${defaultAskFallback ?? "not set"} — defaults to deny when no approval UI is connected. Agents cannot exec headlessly. Set to "full"`,
     });
   }
 
-  // Per-agent checks
   const agents = await getAgents();
-  const visibleAgents = agents.filter((a) => !a.id.startsWith("mc-gateway-"));
+  const visibleAgents = (agents ?? []).filter((a) => !a.id.startsWith("mc-gateway-"));
 
   for (const agent of visibleAgents) {
     const detail = await getAgent(agent.id);
@@ -170,7 +227,7 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
         category: "Agents",
         label: `MC tools in TOOLS.md`,
         status: hasMcTools ? "pass" : "warn",
-        message: hasMcTools ? "Control Center tools section present" : "MC tools section missing — will be added on next sync",
+        message: hasMcTools ? "Bridge Command tools section present" : "MC tools section missing — will be added on next sync",
         agentId: agent.id,
       });
     } else {
@@ -232,7 +289,10 @@ export type FixResult = {
 const FIXABLE_PREFIXES = [
   "hooks-token-",
   "exec-default-policy",
+  "exec-default-security",
+  "exec-default-fallback",
   "exec-",
+  "tools-exec-settings",
   "tools-mc-",
 ];
 
@@ -252,9 +312,14 @@ export async function fixCheck(checkId: string): Promise<FixResult> {
     return { checkId, fixed: true, message: "Permissions set to 600" };
   }
 
-  if (checkId === "exec-default-policy") {
+  if (checkId === "exec-default-policy" || checkId === "exec-default-security" || checkId === "exec-default-fallback") {
     await setExecApproval("defaults");
-    return { checkId, fixed: true, message: "Default exec policy set to allow" };
+    return { checkId, fixed: true, message: "Exec approvals defaults fixed: policy=allow, ask=never, security=full, askFallback=full" };
+  }
+
+  if (checkId === "tools-exec-settings") {
+    await fixToolsExec();
+    return { checkId, fixed: true, message: "Set tools.exec.security=full, ask=off in openclaw.json" };
   }
 
   if (checkId.startsWith("exec-")) {
@@ -266,7 +331,7 @@ export async function fixCheck(checkId: string): Promise<FixResult> {
   if (checkId.startsWith("tools-mc-")) {
     const agentId = checkId.replace("tools-mc-", "");
     const agents = await getAgents();
-    const agent = agents.find((a) => a.id === agentId);
+    const agent = agents?.find((a) => a.id === agentId);
     if (!agent) return { checkId, fixed: false, message: `Agent ${agentId} not found` };
     await syncToolsToWorkspace(agent.workspacePath);
     return { checkId, fixed: true, message: "MC tools synced to TOOLS.md" };
@@ -288,7 +353,7 @@ export async function fixAll(checks: DiagnosticCheck[]): Promise<FixResult[]> {
 type ExecApprovals = {
   version?: number;
   socket?: unknown;
-  defaults?: { policy?: string; ask?: string };
+  defaults?: { policy?: string; ask?: string; security?: string; askFallback?: string };
   agents?: Record<string, { policy?: string; ask?: string; allowlist?: unknown[] }>;
 };
 
@@ -302,7 +367,13 @@ async function setExecApproval(target: string): Promise<void> {
   }
 
   if (target === "defaults") {
-    data.defaults = { ...data.defaults, policy: "allow", ask: "never" };
+    data.defaults = {
+      ...data.defaults,
+      policy: "allow",
+      ask: "never",
+      security: "full",
+      askFallback: "full",
+    };
   } else {
     if (!data.agents) data.agents = {};
     if (!data.agents[target]) data.agents[target] = {};
@@ -311,4 +382,24 @@ async function setExecApproval(target: string): Promise<void> {
   }
 
   await fs.writeFile(EXEC_APPROVALS_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
+
+const OPENCLAW_CONFIG_FILE = path.join(OPENCLAW_HOME, "openclaw.json");
+
+async function fixToolsExec(): Promise<void> {
+  type ToolsConfig = { tools?: { exec?: Record<string, string> } };
+  let data: ToolsConfig;
+  try {
+    const raw = await fs.readFile(OPENCLAW_CONFIG_FILE, "utf-8");
+    data = JSON.parse(raw) as ToolsConfig;
+  } catch {
+    return;
+  }
+
+  if (!data.tools) data.tools = {};
+  if (!data.tools.exec) data.tools.exec = {};
+  data.tools.exec.security = "full";
+  data.tools.exec.ask = "off";
+
+  await fs.writeFile(OPENCLAW_CONFIG_FILE, JSON.stringify(data, null, 2), "utf-8");
 }

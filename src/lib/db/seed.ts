@@ -1,21 +1,55 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "./index";
 import { agentHierarchy } from "./schema";
 import { getAgents } from "../openclaw";
 import { syncToolsToWorkspace } from "../mc-tools";
-import { recoverOrphanedTasks } from "../task-dispatcher";
+import { startTaskLoop } from "../task-dispatcher";
 
 const SKIP_PREFIXES = ["mc-gateway-"];
+const SYNC_INTERVAL = 10 * 60 * 1000;
 
-function getVisibleAgentIds(agents: Awaited<ReturnType<typeof getAgents>>): string[] {
+type HierarchyRow = {
+  agentId: string;
+  parentId: string | null;
+  position: number;
+  description: string | null;
+};
+
+let _hierarchyCache: HierarchyRow[] | null = null;
+let _syncStarted = false;
+let _initialSyncPromise: Promise<void> | null = null;
+
+function getVisibleAgentIds(agents: NonNullable<Awaited<ReturnType<typeof getAgents>>>): string[] {
   return agents
     .filter((a) => !SKIP_PREFIXES.some((p) => a.id.startsWith(p)))
     .map((a) => a.id);
 }
 
-export async function syncHierarchy() {
+function startSyncLoop(): void {
+  if (_syncStarted) return;
+  _syncStarted = true;
+  _initialSyncPromise = runBackgroundSync();
+  setInterval(() => { runBackgroundSync(); }, SYNC_INTERVAL);
+}
+
+async function runBackgroundSync(): Promise<void> {
+  try {
+    await syncAgents();
+    startTaskLoop();
+    const db = getDb();
+    _hierarchyCache = db.select().from(agentHierarchy).all();
+  } catch (err) {
+    console.warn(
+      "[bridge-command] Background sync failed:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
+async function syncAgents() {
   const db = getDb();
   const agents = await getAgents();
+  if (!agents) return; // Config unavailable — skip sync to preserve existing data
   const visibleIds = new Set(getVisibleAgentIds(agents));
   const existing = db.select().from(agentHierarchy).all();
   const existingIds = new Set(existing.map((r) => r.agentId));
@@ -75,11 +109,15 @@ function inferSubagentRelations(agentIds: string[]): Map<string, string> {
   return relations;
 }
 
-export async function getHierarchy() {
-  const db = getDb();
-  await syncHierarchy();
-  recoverOrphanedTasks();
-  return db.select().from(agentHierarchy).all();
+export async function getHierarchy(): Promise<HierarchyRow[]> {
+  startSyncLoop();
+
+  if (_initialSyncPromise) {
+    await _initialSyncPromise;
+    _initialSyncPromise = null;
+  }
+
+  return _hierarchyCache ?? getDb().select().from(agentHierarchy).all();
 }
 
 export async function updateParent(
@@ -88,10 +126,66 @@ export async function updateParent(
   position: number
 ) {
   const db = getDb();
+  const current = db.select().from(agentHierarchy)
+    .where(eq(agentHierarchy.agentId, agentId))
+    .get();
+  if (!current) return;
+
+  const oldParentId = current.parentId;
+
   db.update(agentHierarchy)
-    .set({ parentId, position })
+    .set({ parentId })
     .where(eq(agentHierarchy.agentId, agentId))
     .run();
+
+  reorderChildren(db, parentId, agentId, position);
+
+  if (oldParentId !== parentId) {
+    reorderChildren(db, oldParentId, null, -1);
+  }
+
+  _hierarchyCache = db.select().from(agentHierarchy).all();
+}
+
+function parentFilter(parentId: string | null) {
+  return parentId === null
+    ? isNull(agentHierarchy.parentId)
+    : eq(agentHierarchy.parentId, parentId);
+}
+
+function reorderChildren(
+  db: ReturnType<typeof getDb>,
+  parentId: string | null,
+  insertAgentId: string | null,
+  insertAt: number
+) {
+  const children = db.select().from(agentHierarchy)
+    .where(parentFilter(parentId))
+    .all();
+
+  const others = children
+    .filter((c) => c.agentId !== insertAgentId)
+    .sort((a, b) => a.position - b.position);
+
+  let ordered: typeof children;
+  if (insertAgentId) {
+    const moved = children.find((c) => c.agentId === insertAgentId);
+    if (!moved) return;
+    const clamped = Math.max(0, Math.min(insertAt, others.length));
+    ordered = [...others];
+    ordered.splice(clamped, 0, moved);
+  } else {
+    ordered = others;
+  }
+
+  for (let i = 0; i < ordered.length; i++) {
+    if (ordered[i].position !== i) {
+      db.update(agentHierarchy)
+        .set({ position: i })
+        .where(eq(agentHierarchy.agentId, ordered[i].agentId))
+        .run();
+    }
+  }
 }
 
 export async function updateDescription(
@@ -103,4 +197,11 @@ export async function updateDescription(
     .set({ description })
     .where(eq(agentHierarchy.agentId, agentId))
     .run();
+
+  if (_hierarchyCache) {
+    const row = _hierarchyCache.find((r) => r.agentId === agentId);
+    if (row) {
+      row.description = description;
+    }
+  }
 }

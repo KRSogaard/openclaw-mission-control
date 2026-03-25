@@ -17,11 +17,11 @@ type ChatMessage = {
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  queued: "bg-zinc-800 text-zinc-300 border border-zinc-700",
-  running: "bg-sky-900/50 text-sky-400 border border-sky-700/50",
-  completed: "bg-emerald-900/50 text-emerald-400 border border-emerald-700/50",
-  failed: "bg-red-900/50 text-red-400 border border-red-700/50",
-  cancelled: "bg-zinc-800 text-zinc-500 border border-zinc-700",
+  queued: "bg-zinc-100 text-zinc-600 border border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+  running: "bg-sky-100 text-sky-700 border border-sky-300 dark:bg-sky-900/50 dark:text-sky-400 dark:border-sky-700/50",
+  completed: "bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-400 dark:border-emerald-700/50",
+  failed: "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/50 dark:text-red-400 dark:border-red-700/50",
+  cancelled: "bg-zinc-100 text-zinc-500 border border-zinc-300 dark:bg-zinc-800 dark:text-zinc-500 dark:border-zinc-700",
 };
 
 const EVENT_DOT: Record<string, string> = {
@@ -321,7 +321,7 @@ export default function TaskDetailPage({
                 }`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="outline" className="text-xs">
-                      {msg.role === "user" ? "Control Center" : msg.role === "assistant" ? "Agent" : "Tool Result"}
+                      {msg.role === "user" ? "Bridge Command" : msg.role === "assistant" ? "Agent" : "Tool Result"}
                     </Badge>
                     {msg.toolError && (
                       <Badge className="bg-red-900/50 text-red-400 border border-red-700/50 text-xs">error</Badge>

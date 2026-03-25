@@ -5,6 +5,6 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "sqlite",
   dbCredentials: {
-    url: "./data/control-center.db",
+    url: "./data/bridge-command.db",
   },
 });

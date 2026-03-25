@@ -30,7 +30,7 @@ export async function GET(): Promise<Response> {
     ]);
 
     const agentMap = new Map(
-      agents
+      (agents ?? [])
         .filter((a) => !a.id.startsWith("mc-gateway-"))
         .map((a) => [a.id, { name: a.name, model: formatModelName(a.model) }])
     );

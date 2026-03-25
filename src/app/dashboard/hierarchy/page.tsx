@@ -172,6 +172,69 @@ function DraggableCard({
   );
 }
 
+function usePannable(el: HTMLElement | null) {
+  const spaceHeld = useRef(false);
+  const panning = useRef(false);
+  const origin = useRef({ x: 0, y: 0 });
+  const scroll = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!el) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code !== "Space" || e.repeat) return;
+      if ((e.target as HTMLElement).tagName === "TEXTAREA" || (e.target as HTMLElement).tagName === "INPUT") return;
+      e.preventDefault();
+      spaceHeld.current = true;
+      el!.style.cursor = "grab";
+    }
+
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.code !== "Space") return;
+      spaceHeld.current = false;
+      panning.current = false;
+      el!.style.cursor = "";
+    }
+
+    function onPointerDown(e: PointerEvent) {
+      if (!spaceHeld.current || e.button !== 0) return;
+      e.stopPropagation();
+      e.preventDefault();
+      panning.current = true;
+      origin.current = { x: e.clientX, y: e.clientY };
+      scroll.current = { x: el!.scrollLeft, y: el!.scrollTop };
+      el!.style.cursor = "grabbing";
+      el!.setPointerCapture(e.pointerId);
+    }
+
+    function onPointerMove(e: PointerEvent) {
+      if (!panning.current) return;
+      el!.scrollLeft = scroll.current.x - (e.clientX - origin.current.x);
+      el!.scrollTop = scroll.current.y - (e.clientY - origin.current.y);
+    }
+
+    function onPointerUp() {
+      if (!panning.current) return;
+      panning.current = false;
+      el!.style.cursor = spaceHeld.current ? "grab" : "";
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keyup", onKeyUp);
+    el.addEventListener("pointerdown", onPointerDown, { capture: true });
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keyup", onKeyUp);
+      el.removeEventListener("pointerdown", onPointerDown, { capture: true });
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [el]);
+}
+
 function DropSlot({
   id,
   label,
@@ -387,6 +450,8 @@ export default function HierarchyPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const agentsRef = useRef<Map<string, AgentSummary>>(new Map());
+  const [canvasEl, setCanvasEl] = useState<HTMLDivElement | null>(null);
+  usePannable(canvasEl);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -498,7 +563,7 @@ export default function HierarchyPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <AgentsTabs />
       {toolbar}
-      <div className="flex flex-1 overflow-auto">
+      <div ref={setCanvasEl} className="flex flex-1 overflow-auto">
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
