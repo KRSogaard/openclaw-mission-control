@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { ApiResponse } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatBytes, formatUptime } from "@/lib/format";
 
 type DiskInfo = { mount: string; size: string; used: string; available: string; usePct: number };
 
@@ -23,29 +24,6 @@ type ServerStats = {
   nodeVersion: string;
   timestamp: number;
 };
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let val = bytes;
-  let i = -1;
-  do {
-    val /= 1024;
-    i++;
-  } while (val >= 1024 && i < units.length - 1);
-  return `${val.toFixed(1)} ${units[i]}`;
-}
-
-function formatUptime(seconds: number): string {
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const parts: string[] = [];
-  if (d > 0) parts.push(`${d}d`);
-  if (h > 0) parts.push(`${h}h`);
-  parts.push(`${m}m`);
-  return parts.join(" ");
-}
 
 function ProgressBar({ value, color }: { value: number; color: string }) {
   return (

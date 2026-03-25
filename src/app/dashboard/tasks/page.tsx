@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import type { AgentSummary, ApiResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -83,10 +83,14 @@ export default function GlobalTasksPage() {
 
   useEffect(() => {
     fetchTasks();
+  }, [fetchTasks]);
+
+  useEffect(() => {
     const hasActive = tasks.some((t) => t.status === "queued" || t.status === "running");
-    const interval = setInterval(fetchTasks, hasActive ? 5000 : 15000);
+    if (!hasActive) return;
+    const interval = setInterval(fetchTasks, 5000);
     return () => clearInterval(interval);
-  }, [fetchTasks, tasks.length]);
+  }, [tasks, fetchTasks]);
 
   async function handleCreate() {
     if (!createAgent || !createTitle.trim() || submitting) return;
@@ -109,13 +113,16 @@ export default function GlobalTasksPage() {
   const agents = [...new Set(tasks.map((t) => t.agentId))].sort();
   const filtered = filterAgent ? tasks.filter((t) => t.agentId === filterAgent) : tasks;
 
-  const grouped = new Map<string, GlobalTask[]>();
-  for (const col of COLUMNS) grouped.set(col.key, []);
-  for (const task of filtered) {
-    const key = task.status === "cancelled" ? "failed" : task.status;
-    const arr = grouped.get(key);
-    if (arr) arr.push(task);
-  }
+  const grouped = useMemo(() => {
+    const map = new Map<string, GlobalTask[]>();
+    for (const col of COLUMNS) map.set(col.key, []);
+    for (const task of filtered) {
+      const key = task.status === "cancelled" ? "failed" : task.status;
+      const arr = map.get(key);
+      if (arr) arr.push(task);
+    }
+    return map;
+  }, [filtered]);
 
   if (loading) {
     return (

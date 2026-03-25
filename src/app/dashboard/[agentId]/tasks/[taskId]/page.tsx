@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatTimestamp, formatRelative } from "@/lib/format";
+import { TASK_STATUS_BADGE, EVENT_DOT } from "@/lib/constants";
 
 type ChatMessage = {
   role: "user" | "assistant" | "toolResult";
@@ -15,40 +17,6 @@ type ChatMessage = {
   toolError?: string;
   timestamp?: number;
 };
-
-const STATUS_BADGE: Record<string, string> = {
-  queued: "bg-zinc-100 text-zinc-600 border border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
-  running: "bg-sky-100 text-sky-700 border border-sky-300 dark:bg-sky-900/50 dark:text-sky-400 dark:border-sky-700/50",
-  completed: "bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-400 dark:border-emerald-700/50",
-  failed: "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/50 dark:text-red-400 dark:border-red-700/50",
-  cancelled: "bg-zinc-100 text-zinc-500 border border-zinc-300 dark:bg-zinc-800 dark:text-zinc-500 dark:border-zinc-700",
-};
-
-const EVENT_DOT: Record<string, string> = {
-  created: "bg-zinc-500",
-  dispatched: "bg-sky-500",
-  progress: "bg-sky-400",
-  timeout_retry: "bg-amber-500",
-  completed: "bg-emerald-500",
-  failed: "bg-red-500",
-  cancelled: "bg-zinc-500",
-  retried: "bg-violet-500",
-  resumed: "bg-sky-400",
-};
-
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-}
-
-function formatRelative(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return "just now";
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h ago`;
-  return `${Math.floor(diff / 86400_000)}d ago`;
-}
 
 export default function TaskDetailPage({
   params,
@@ -198,12 +166,12 @@ export default function TaskDetailPage({
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-foreground">{task.title}</h1>
-          <Badge className={STATUS_BADGE[task.status] ?? STATUS_BADGE.queued}>
+          <Badge className={TASK_STATUS_BADGE[task.status] ?? TASK_STATUS_BADGE.queued}>
             {task.status}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <span>Created {formatTime(task.createdAt)}</span>
+          <span>Created {formatTimestamp(task.createdAt)}</span>
           {task.createdBy && <span>by {task.createdBy}</span>}
           <span>Updated {formatRelative(task.updatedAt)}</span>
           {task.retryCount > 0 && settings && (
@@ -282,7 +250,7 @@ export default function TaskDetailPage({
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground">{event.event}</span>
                       {event.actor && <span className="text-xs text-muted-foreground">{event.actor}</span>}
-                      <span className="ml-auto text-xs text-muted-foreground shrink-0">{formatTime(event.timestamp)}</span>
+                      <span className="ml-auto text-xs text-muted-foreground shrink-0">{formatTimestamp(event.timestamp)}</span>
                     </div>
                     {event.message && (
                       <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{event.message}</p>
@@ -327,7 +295,7 @@ export default function TaskDetailPage({
                       <Badge className="bg-red-900/50 text-red-400 border border-red-700/50 text-xs">error</Badge>
                     )}
                     {msg.timestamp && (
-                      <span className="ml-auto text-xs text-muted-foreground shrink-0">{formatTime(msg.timestamp)}</span>
+                      <span className="ml-auto text-xs text-muted-foreground shrink-0">{formatTimestamp(msg.timestamp)}</span>
                     )}
                   </div>
                   {msg.text && (

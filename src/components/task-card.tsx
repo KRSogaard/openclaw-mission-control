@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { getAgentColor } from "@/lib/utils";
+import { formatDateTime } from "@/lib/format";
 
 export type TaskCardData = {
   id: string;
@@ -13,15 +14,6 @@ export type TaskCardData = {
   createdBy: string | null;
   createdAt: number;
 };
-
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export function TaskCard({
   task,
@@ -78,7 +70,7 @@ export function TaskCard({
           </span>
         )}
         <span className="text-xs text-muted-foreground/50 ml-auto shrink-0">
-          {formatTime(task.createdAt)}
+          {formatDateTime(task.createdAt)}
         </span>
         {task.retryCount > 0 && (
           <Badge className="text-xs bg-amber-900/40 text-amber-400 border-amber-800/40 h-4 px-1.5">

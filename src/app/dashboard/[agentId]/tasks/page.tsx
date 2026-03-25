@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, use, useCallback } from "react";
+import { useEffect, useState, useRef, use, useCallback, useMemo } from "react";
 import Link from "next/link";
 import type {
   AgentTask,
@@ -14,10 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TaskCard } from "@/components/task-card";
 import { TaskDetailPanel } from "@/components/task-detail-panel";
-
-/* ------------------------------------------------------------------ */
-/*  Constants                                                         */
-/* ------------------------------------------------------------------ */
+import { formatDateTime } from "@/lib/format";
+import { IconPlus, IconGear, IconX, IconBoard } from "@/components/icons";
 
 const COLUMNS: {
   key: string;
@@ -62,101 +60,6 @@ const COLUMNS: {
     statuses: ["cancelled"],
   },
 ];
-
-
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
-function fmtDate(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-
-
-/* ------------------------------------------------------------------ */
-/*  Inline SVG icons                                                  */
-/* ------------------------------------------------------------------ */
-
-function IconPlus() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    >
-      <path d="M7 2v10M2 7h10" />
-    </svg>
-  );
-}
-
-function IconGear() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="7" cy="7" r="2.2" />
-      <path d="M6.1 1.2h1.8l.4 1.3a4.5 4.5 0 0 1 1.1.6l1.3-.4 .9 1.6-1 .9a4.5 4.5 0 0 1 0 1.2l1 .9-.9 1.6-1.3-.4a4.5 4.5 0 0 1-1.1.6l-.4 1.3H6.1l-.4-1.3a4.5 4.5 0 0 1-1.1-.6l-1.3.4-.9-1.6 1-.9a4.5 4.5 0 0 1 0-1.2l-1-.9.9-1.6 1.3.4a4.5 4.5 0 0 1 1.1-.6z" />
-    </svg>
-  );
-}
-
-function IconX() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    >
-      <path d="M2 2l10 10M12 2L2 12" />
-    </svg>
-  );
-}
-
-function IconBoard() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <rect
-        x="2"
-        y="4"
-        width="14"
-        height="10"
-        rx="2"
-        stroke="#52525b"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M6 8h6M6 11h4"
-        stroke="#52525b"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-
 
 /* ------------------------------------------------------------------ */
 /*  InlineCreateForm                                                  */
@@ -408,13 +311,13 @@ export default function TasksPage({
   }, [tasks, fetchTasks]);
 
   /* Group tasks into columns */
-  const grouped = new Map<string, AgentTask[]>();
-  for (const col of COLUMNS) {
-    grouped.set(
-      col.key,
-      tasks.filter((t) => col.statuses.includes(t.status)),
-    );
-  }
+  const grouped = useMemo(() => {
+    const map = new Map<string, AgentTask[]>();
+    for (const col of COLUMNS) {
+      map.set(col.key, tasks.filter((t) => col.statuses.includes(t.status)));
+    }
+    return map;
+  }, [tasks]);
 
   /* ---- Loading skeleton ---- */
   if (loading) {

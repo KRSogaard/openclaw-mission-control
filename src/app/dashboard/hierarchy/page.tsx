@@ -482,11 +482,11 @@ export default function HierarchyPage() {
     fetchHierarchy();
   }, [fetchHierarchy]);
 
-  function handleDragStart(event: DragStartEvent) {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(String(event.active.id));
-  }
+  }, []);
 
-  async function handleDragEnd(event: DragEndEvent) {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const agentId = String(event.active.id);
     setActiveId(null);
 
@@ -518,11 +518,11 @@ export default function HierarchyPage() {
     } finally {
       setIsUpdating(false);
     }
-  }
+  }, [hierarchy, fetchHierarchy]);
 
-  function handleDragCancel() {
+  const handleDragCancel = useCallback(() => {
     setActiveId(null);
-  }
+  }, []);
 
   const handleDescriptionChange = useCallback(
     async (agentId: string, description: string | null) => {

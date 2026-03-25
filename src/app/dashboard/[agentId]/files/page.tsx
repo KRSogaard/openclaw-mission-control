@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CodeEditor } from "@/components/code-editor";
-
+import { formatBytes } from "@/lib/format";
 
 import {
   Breadcrumb,
@@ -71,12 +71,6 @@ function FileIcon({ type }: { type: "file" | "directory" }) {
   );
 }
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export default function AgentWorkspacePage({
   params,
 }: {
@@ -103,6 +97,13 @@ export default function AgentWorkspacePage({
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const newFileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentPathRef = useRef(currentPath);
+  currentPathRef.current = currentPath;
+  const selectedFileRef = useRef(selectedFile);
+  selectedFileRef.current = selectedFile;
+  const selectedImageRef = useRef(selectedImage);
+  selectedImageRef.current = selectedImage;
 
   const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp"]);
   function isImageFile(filePath: string): boolean {
@@ -290,17 +291,17 @@ export default function AgentWorkspacePage({
     const urlPath = searchParams.get("path") || ".";
     const urlFile = searchParams.get("open") || null;
 
-    if (urlPath !== currentPath) {
+    if (urlPath !== currentPathRef.current) {
       fetchFiles(urlPath);
     }
-    if (urlFile && urlFile !== selectedFile?.path) {
+    if (urlFile && urlFile !== selectedFileRef.current?.path) {
       openFile(urlFile);
     }
-    if (!urlFile && (selectedFile || selectedImage)) {
+    if (!urlFile && (selectedFileRef.current || selectedImageRef.current)) {
       setSelectedFile(null);
       setSelectedImage(null);
     }
-  }, [searchParams]);
+  }, [searchParams, fetchFiles, openFile]);
 
   function handleEntryClick(entry: FileEntry) {
     if (entry.type === "directory") {
@@ -437,7 +438,7 @@ export default function AgentWorkspacePage({
                       <span className="truncate">{entry.name}</span>
                       {entry.type === "file" && (
                         <span className="ml-auto shrink-0 text-xs text-muted-foreground/50 group-hover/entry:hidden">
-                          {formatSize(entry.size)}
+                          {formatBytes(entry.size)}
                         </span>
                       )}
                     </button>
@@ -530,7 +531,7 @@ export default function AgentWorkspacePage({
                   )}
                 </div>
                 <span className="text-xs text-muted-foreground/50">
-                  {formatSize(selectedFile.size)}
+                  {formatBytes(selectedFile.size)}
                   {selectedFile.language && ` \u00b7 ${selectedFile.language}`}
                 </span>
               </div>

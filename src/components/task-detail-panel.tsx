@@ -9,6 +9,9 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getAgentColor } from "@/lib/utils";
+import { formatDateTime, formatTimeOnly } from "@/lib/format";
+import { TASK_STATUS_BADGE, TASK_STATUS_LABEL, EVENT_DOT } from "@/lib/constants";
+import { IconX } from "@/components/icons";
 
 export type DetailPanelTask = {
   id: string;
@@ -23,65 +26,6 @@ export type DetailPanelTask = {
   createdAt: number;
   updatedAt: number;
 };
-
-const STATUS_BADGE: Record<string, string> = {
-  queued: "bg-zinc-600",
-  running: "bg-sky-600",
-  completed: "bg-emerald-600",
-  failed: "bg-red-600",
-  cancelled: "bg-muted text-muted-foreground",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  queued: "Queued",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
-
-const EVENT_DOT: Record<string, string> = {
-  created: "bg-zinc-500",
-  dispatched: "bg-sky-500",
-  progress: "bg-sky-500",
-  timeout_retry: "bg-amber-500",
-  completed: "bg-emerald-500",
-  failed: "bg-red-500",
-  cancelled: "bg-zinc-500",
-};
-
-function fmtDate(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function fmtTime(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function IconX() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    >
-      <path d="M2 2l10 10M12 2L2 12" />
-    </svg>
-  );
-}
 
 export function TaskDetailPanel({
   task,
@@ -159,9 +103,9 @@ export function TaskDetailPanel({
                 {task.title}
               </span>
               <Badge
-                className={`text-xs shrink-0 ml-auto ${STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
+                className={`text-xs shrink-0 ml-auto $                {TASK_STATUS_BADGE[task.status] ?? "bg-zinc-600"}`}
               >
-                {STATUS_LABEL[task.status] ?? task.status}
+                {TASK_STATUS_LABEL[task.status] ?? task.status}
               </Badge>
             </div>
           </div>
@@ -216,9 +160,9 @@ export function TaskDetailPanel({
               </>
             )}
             <span className="text-muted-foreground">Created</span>
-            <span className="text-foreground">{fmtDate(task.createdAt)}</span>
+            <span className="text-foreground">{formatDateTime(task.createdAt)}</span>
             <span className="text-muted-foreground">Updated</span>
-            <span className="text-foreground">{fmtDate(task.updatedAt)}</span>
+            <span className="text-foreground">{formatDateTime(task.updatedAt)}</span>
             <span className="text-muted-foreground">Retries</span>
             <span className="text-foreground">{task.retryCount}</span>
           </div>
@@ -312,7 +256,7 @@ export function TaskDetailPanel({
                         {ev.event.replace(/_/g, " ")}
                       </span>
                       <span className="text-xs text-muted-foreground/50 ml-auto shrink-0">
-                        {fmtTime(ev.timestamp)}
+                        {formatTimeOnly(ev.timestamp)}
                       </span>
                     </div>
                     {ev.message && (
