@@ -358,6 +358,20 @@ export async function retryTask(taskId: string): Promise<void> {
   await dispatchNext(task.agentId);
 }
 
+export async function deleteTask(taskId: string): Promise<boolean> {
+  const db = getDb();
+  const task = db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).get();
+  if (!task) return false;
+
+  if (task.status === "running" || task.status === "queued") return false;
+
+  db.delete(agentTasks)
+    .where(and(eq(agentTasks.id, taskId), inArray(agentTasks.status, ["completed", "failed", "cancelled"])))
+    .run();
+
+  return true;
+}
+
 export async function createTask(
   agentId: string,
   title: string,

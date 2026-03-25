@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/index";
 import { agentTasks } from "@/lib/db/schema";
-import { cancelTask, retryTask, completeTask, checkInTask } from "@/lib/task-dispatcher";
+import { cancelTask, retryTask, completeTask, checkInTask, deleteTask } from "@/lib/task-dispatcher";
 import type { AgentTask, ApiResponse } from "@/lib/types";
 
 export async function GET(
@@ -53,7 +53,7 @@ export async function POST(
   const { taskId } = await params;
 
   try {
-    const body = (await request.json()) as { action: "retry" | "complete" | "check-in"; result?: string };
+    const body = (await request.json()) as { action: "retry" | "complete" | "check-in" | "cancel"; result?: string };
 
     if (body.action === "check-in") {
       await checkInTask(taskId);
@@ -70,8 +70,13 @@ export async function POST(
       return Response.json({ data: { ok: true } });
     }
 
+    if (body.action === "cancel") {
+      await cancelTask(taskId);
+      return Response.json({ data: { ok: true } });
+    }
+
     return Response.json(
-      { error: { code: "INVALID_ACTION", message: "action must be 'retry' or 'complete'" } },
+      { error: { code: "INVALID_ACTION", message: "Unknown action" } },
       { status: 400 }
     );
   } catch (err) {
@@ -90,7 +95,13 @@ export async function DELETE(
   const { taskId } = await params;
 
   try {
-    await cancelTask(taskId);
+    const deleted = await deleteTask(taskId);
+    if (!deleted) {
+      return Response.json(
+        { error: { code: "INVALID_STATE", message: "Only completed, failed, or cancelled tasks can be deleted" } },
+        { status: 409 }
+      );
+    }
     return Response.json({ data: { ok: true } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

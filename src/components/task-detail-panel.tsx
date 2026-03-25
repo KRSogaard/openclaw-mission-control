@@ -70,6 +70,7 @@ export function TaskDetailPanel({
   }, [onClose]);
 
   const isActive = task.status === "queued" || task.status === "running";
+  const isTerminal = task.status === "completed" || task.status === "failed" || task.status === "cancelled";
 
   async function handleAction(action: string, body?: Record<string, string>) {
     await fetch(`/api/agents/${task.agentId}/tasks/${task.id}`, {
@@ -78,6 +79,14 @@ export function TaskDetailPanel({
       body: JSON.stringify({ action, ...body }),
     });
     await fetchEvents();
+    onTaskChanged?.();
+  }
+
+  async function handleDelete() {
+    await fetch(`/api/agents/${task.agentId}/tasks/${task.id}`, {
+      method: "DELETE",
+    });
+    onClose();
     onTaskChanged?.();
   }
 
@@ -187,7 +196,6 @@ export function TaskDetailPanel({
           </>
         )}
 
-        {/* Actions */}
         {isActive && (
           <>
             <div className="p-4 flex flex-wrap gap-2">
@@ -218,6 +226,32 @@ export function TaskDetailPanel({
                 className="text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs"
               >
                 Cancel
+              </Button>
+            </div>
+            <Separator className="bg-border" />
+          </>
+        )}
+
+        {isTerminal && (
+          <>
+            <div className="p-4 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleAction("retry")}
+                className="text-xs"
+              >
+                Retry
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  if (window.confirm("Permanently delete this task and its log?")) handleDelete();
+                }}
+                className="text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs"
+              >
+                Delete
               </Button>
             </div>
             <Separator className="bg-border" />
