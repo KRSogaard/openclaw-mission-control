@@ -3,10 +3,12 @@ import path from "node:path";
 import os from "node:os";
 import { getAgents, getAgent } from "./openclaw";
 import { getWsClient } from "./openclaw-ws";
-import { syncToolsToWorkspace, getHooksToken } from "./mc-tools";
+import { syncToolsToWorkspace, getHooksToken } from "./bc-tools";
+import { isBridgeCommanderReady, setupBridgeCommander } from "./bridge-commander";
+import { isVisibleAgent } from "./constants";
 
 const OPENCLAW_HOME = path.join(os.homedir(), ".openclaw");
-const TOKEN_FILE = path.join(OPENCLAW_HOME, "credentials", "mc-hooks-token");
+const TOKEN_FILE = path.join(OPENCLAW_HOME, "credentials", "bc-hooks-token");
 const EXEC_APPROVALS_FILE = path.join(OPENCLAW_HOME, "exec-approvals.json");
 
 export type CheckStatus = "pass" | "warn" | "fail";
@@ -196,8 +198,19 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
     });
   }
 
+  const bcReady = await isBridgeCommanderReady();
+  checks.push({
+    id: "bridge-commander",
+    category: "Bridge Command",
+    label: "BridgeCommander agent",
+    status: bcReady ? "pass" : "warn",
+    message: bcReady
+      ? "BridgeCommander is configured — AI agent creation available"
+      : "BridgeCommander not found — AI-generated agent creation will auto-setup on first use, or fix now",
+  });
+
   const agents = await getAgents();
-  const visibleAgents = (agents ?? []).filter((a) => !a.id.startsWith("mc-gateway-"));
+  const visibleAgents = (agents ?? []).filter((a) => isVisibleAgent(a.id));
 
   for (const agent of visibleAgents) {
     const detail = await getAgent(agent.id);
@@ -220,14 +233,14 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
 
     if (toolsExists) {
       const toolsContent = await fs.readFile(toolsPath, "utf-8");
-      const hasMcTools = toolsContent.includes("<!-- BEGIN:MC_TOOLS -->");
+      const hasBcTools = toolsContent.includes("<!-- BEGIN:BC_TOOLS -->");
 
       checks.push({
         id: `tools-mc-${agent.id}`,
         category: "Agents",
         label: `MC tools in TOOLS.md`,
-        status: hasMcTools ? "pass" : "warn",
-        message: hasMcTools ? "Bridge Command tools section present" : "MC tools section missing — will be added on next sync",
+        status: hasBcTools ? "pass" : "warn",
+        message: hasBcTools ? "Bridge Command tools section present" : "MC tools section missing — will be added on next sync",
         agentId: agent.id,
       });
     } else {
@@ -287,6 +300,7 @@ export type FixResult = {
 };
 
 const FIXABLE_PREFIXES = [
+  "bridge-commander",
   "hooks-token-",
   "exec-default-policy",
   "exec-default-security",
@@ -302,6 +316,11 @@ export function isFixable(checkId: string, status: CheckStatus): boolean {
 }
 
 export async function fixCheck(checkId: string): Promise<FixResult> {
+  if (checkId === "bridge-commander") {
+    await setupBridgeCommander();
+    return { checkId, fixed: true, message: "BridgeCommander agent created and configured" };
+  }
+
   if (checkId === "hooks-token-exists" || checkId === "hooks-token-nonempty") {
     await getHooksToken();
     return { checkId, fixed: true, message: "Token generated" };

@@ -1,4 +1,5 @@
-import { getAgent, updateAgentModel, updateAgentSubagents, updateAgentToAgent } from "@/lib/openclaw";
+import { getAgent, updateAgentModel, updateAgentSubagents, updateAgentToAgent, getSubagentInfoForParent } from "@/lib/openclaw";
+import { syncParentSubagentDocs } from "@/lib/bridge-commander";
 import { toAgentView } from "@/lib/api-transforms";
 import { getHierarchy } from "@/lib/db/seed";
 import type { AgentView, ApiResponse } from "@/lib/types";
@@ -46,8 +47,9 @@ export async function PATCH(
     if (body.model) {
       await updateAgentModel(id, body.model);
     }
-    if (body.allowedSubagents) {
+    if (body.allowedSubagents !== undefined) {
       await updateAgentSubagents(id, body.allowedSubagents);
+      syncParentSubagentDocs(id, await getSubagentInfoForParent(id)).catch(() => {});
     }
     if (body.agentToAgentPeers !== undefined) {
       await updateAgentToAgent(id, body.agentToAgentPeers);

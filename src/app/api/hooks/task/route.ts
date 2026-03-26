@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { completeTask, failTask, updateTaskStatus, createTask } from "@/lib/task-dispatcher";
-import { getHooksToken } from "@/lib/mc-tools";
+import { getHooksToken } from "@/lib/bc-tools";
 
 type HookPayload =
   | { action: "task.complete"; taskId: string; result?: string }

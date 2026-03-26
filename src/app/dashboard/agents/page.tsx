@@ -22,9 +22,7 @@ export default function DashboardPage() {
           setError(json.error.message);
           return;
         }
-        const visible = json.data.filter(
-          (a) => !a.id.startsWith("mc-gateway-")
-        );
+        const visible = json.data;
         setAgents(visible);
       } catch {
         setError("Failed to fetch agents");

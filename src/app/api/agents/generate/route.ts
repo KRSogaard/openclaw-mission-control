@@ -1,14 +1,13 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { getAgents, agentExists, invalidateConfigCache, updateAgentSubagents, updateAgentToAgent, ensureHooksAccess, cleanBootstrapFiles, copyUserMdFromDefault, addAgentToSpawnList, getSubagentInfoForParent } from "@/lib/openclaw";
-import { toAgentSummary } from "@/lib/api-transforms";
-import { getHierarchy, addAgentToHierarchy } from "@/lib/db/seed";
+import { agentExists, invalidateConfigCache, updateAgentSubagents, updateAgentToAgent, ensureHooksAccess, cleanBootstrapFiles, copyUserMdFromDefault, addAgentToSpawnList, getSubagentInfoForParent } from "@/lib/openclaw";
+import { addAgentToHierarchy } from "@/lib/db/seed";
 import { syncToolsToWorkspace } from "@/lib/bc-tools";
-import { syncParentSubagentDocs } from "@/lib/bridge-commander";
-import { isVisibleAgent } from "@/lib/constants";
-import type { AgentSummary, AgentCreateRequest, AgentCreateResponse, ApiResponse } from "@/lib/types";
+import { generateAgentFiles, syncParentSubagentDocs } from "@/lib/bridge-commander";
+import type { AgentGenerateRequest, AgentCreateResponse, ApiResponse } from "@/lib/types";
 
 const execAsync = promisify(exec);
 const OPENCLAW_HOME = path.join(os.homedir(), ".openclaw");
@@ -24,30 +23,19 @@ function normalizeToId(name: string): string {
     .slice(0, MAX_ID_LENGTH);
 }
 
-export async function GET(): Promise<Response> {
-  try {
-    const [agents, rows] = await Promise.all([getAgents(), getHierarchy()]);
-    const descMap = new Map(rows.map((r) => [r.agentId, r.description]));
-    const summaries = (agents ?? [])
-      .filter((a) => isVisibleAgent(a.id))
-      .map((a) => toAgentSummary(a, descMap.get(a.id)));
-    return Response.json({ data: summaries } satisfies ApiResponse<AgentSummary[]>);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json(
-      { error: { code: "AGENTS_ERROR", message } } satisfies ApiResponse<AgentSummary[]>,
-      { status: 500 }
-    );
-  }
-}
-
 export async function POST(req: Request): Promise<Response> {
   try {
-    const body = (await req.json()) as AgentCreateRequest;
+    const body = (await req.json()) as AgentGenerateRequest;
 
     if (!body.name || typeof body.name !== "string" || body.name.trim().length === 0) {
       return Response.json(
         { error: { code: "VALIDATION_ERROR", message: "name is required" } },
+        { status: 400 },
+      );
+    }
+    if (!body.purpose || typeof body.purpose !== "string" || body.purpose.trim().length === 0) {
+      return Response.json(
+        { error: { code: "VALIDATION_ERROR", message: "purpose is required for AI-generated agents" } },
         { status: 400 },
       );
     }
@@ -80,17 +68,10 @@ export async function POST(req: Request): Promise<Response> {
 
     const modelFlag = body.model ? ` --model "${body.model}"` : "";
 
-    const { stdout } = await execAsync(
+    await execAsync(
       `openclaw agents add "${body.name.trim()}" --workspace "${workspace}"${modelFlag} --json`,
       { timeout: 30_000 },
     );
-
-    let cliResult: { agentId?: string; model?: string };
-    try {
-      cliResult = JSON.parse(stdout) as { agentId?: string; model?: string };
-    } catch {
-      cliResult = { agentId };
-    }
 
     invalidateConfigCache();
 
@@ -101,13 +82,32 @@ export async function POST(req: Request): Promise<Response> {
     const isSubagent = body.addToParentSpawnList === true;
 
     await cleanBootstrapFiles(resolvedWorkspace);
-    if (!isSubagent) {
-      await copyUserMdFromDefault(resolvedWorkspace);
+
+    const files = await generateAgentFiles({
+      name: body.name.trim(),
+      purpose: body.purpose.trim(),
+      personality: body.personality,
+      peers: body.peers,
+      parentId: body.parentId,
+      model: body.model,
+    });
+
+    if (isSubagent) {
+      await fs.writeFile(path.join(resolvedWorkspace, "AGENTS.md"), files.agents, "utf-8");
+    } else {
+      await Promise.all([
+        fs.writeFile(path.join(resolvedWorkspace, "SOUL.md"), files.soul, "utf-8"),
+        fs.writeFile(path.join(resolvedWorkspace, "IDENTITY.md"), files.identity, "utf-8"),
+        fs.writeFile(path.join(resolvedWorkspace, "AGENTS.md"), files.agents, "utf-8"),
+        fs.writeFile(path.join(resolvedWorkspace, "MEMORY.md"), files.memory, "utf-8"),
+        fs.writeFile(path.join(resolvedWorkspace, "HEARTBEAT.md"), files.heartbeat, "utf-8"),
+        copyUserMdFromDefault(resolvedWorkspace),
+      ]);
     }
+
     await syncToolsToWorkspace(resolvedWorkspace);
 
-    const rootAgentId = body.parentId ?? null;
-    await addAgentToHierarchy(agentId, rootAgentId, body.description ?? null);
+    await addAgentToHierarchy(agentId, body.parentId ?? null, body.description ?? null);
 
     if (body.peers && body.peers.length > 0) {
       await updateAgentToAgent(agentId, body.peers);
@@ -128,15 +128,11 @@ export async function POST(req: Request): Promise<Response> {
 
     invalidateConfigCache();
 
-    const agents = await getAgents();
-    const created = agents?.find((a) => a.id === agentId);
-    const model = created?.model ?? cliResult.model ?? body.model ?? "unknown";
-
     const response: AgentCreateResponse = {
       agentId,
       name: body.name.trim(),
       workspace,
-      model,
+      model: body.model ?? "default",
     };
 
     return Response.json({ data: response } satisfies ApiResponse<AgentCreateResponse>, { status: 201 });
@@ -148,3 +144,5 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 }
+
+

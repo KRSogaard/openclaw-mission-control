@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db/index";
 import { agentTasks } from "@/lib/db/schema";
 import { getAgents } from "@/lib/openclaw";
 import { formatModelName } from "@/lib/api-transforms";
+import { isVisibleAgent } from "@/lib/constants";
 import type { ApiResponse } from "@/lib/types";
 
 export type GlobalTask = {
@@ -31,7 +32,7 @@ export async function GET(): Promise<Response> {
 
     const agentMap = new Map(
       (agents ?? [])
-        .filter((a) => !a.id.startsWith("mc-gateway-"))
+        .filter((a) => isVisibleAgent(a.id))
         .map((a) => [a.id, { name: a.name, model: formatModelName(a.model) }])
     );
 

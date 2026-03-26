@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { getHierarchy, updateParent, updateDescription } from "@/lib/db/seed";
 import { getAgents } from "@/lib/openclaw";
 import { toAgentSummary } from "@/lib/api-transforms";
+import { isVisibleAgent } from "@/lib/constants";
 import type { ApiResponse, AgentHierarchyNode, HierarchyUpdate } from "@/lib/types";
 
 type HierarchyRow = { agentId: string; parentId: string | null; position: number; description: string | null };
@@ -42,7 +43,7 @@ export async function GET(): Promise<Response> {
 
     const agentMap = new Map(
       (internalAgents ?? [])
-        .filter((a) => !a.id.startsWith("mc-gateway-"))
+        .filter((a) => isVisibleAgent(a.id))
         .map((a) => [a.id, toAgentSummary(a)])
     );
 

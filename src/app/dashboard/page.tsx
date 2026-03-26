@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { AgentsTabs } from "@/components/agents-tabs";
 import type {
   AgentHierarchyNode,
@@ -29,10 +31,12 @@ function DraggableCard({
   agent,
   children,
   onDescriptionChange,
+  onAddChild,
 }: {
   agent: AgentSummary;
   children?: React.ReactNode;
   onDescriptionChange?: (agentId: string, description: string | null) => Promise<void>;
+  onAddChild?: (parentId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: agent.id });
@@ -83,7 +87,7 @@ function DraggableCard({
   const color = getAgentColor(agent.id);
 
   return (
-    <div ref={setNodeRef} style={style} className="flex flex-col items-center">
+    <div ref={setNodeRef} style={style} className="group/card flex flex-col items-center">
       <div
         {...attributes}
         {...listeners}
@@ -171,6 +175,15 @@ function DraggableCard({
           )}
         </div>
       </div>
+      {onAddChild && (
+        <button
+          onClick={() => onAddChild(agent.id)}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="mt-1 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-opacity hover:border-sky-500 hover:text-sky-400 group-hover/card:opacity-100"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      )}
       {children}
     </div>
   );
@@ -312,13 +325,15 @@ function TreeNode({
   node,
   activeId,
   onDescriptionChange,
+  onAddChild,
 }: {
   node: AgentHierarchyNode;
   activeId: string | null;
   onDescriptionChange?: (agentId: string, description: string | null) => Promise<void>;
+  onAddChild?: (parentId: string) => void;
 }) {
   return (
-    <DraggableCard agent={node.agent} onDescriptionChange={onDescriptionChange}>
+    <DraggableCard agent={node.agent} onDescriptionChange={onDescriptionChange} onAddChild={onAddChild}>
       <NestSlot
         parentId={node.agent.id}
         activeId={activeId}
@@ -351,7 +366,7 @@ function TreeNode({
                     />
                   )}
                   <div className="h-6 w-px bg-border" />
-                  <TreeNode node={child} activeId={activeId} onDescriptionChange={onDescriptionChange} />
+                  <TreeNode node={child} activeId={activeId} onDescriptionChange={onDescriptionChange} onAddChild={onAddChild} />
                 </div>
 
                 <DropSlot
@@ -448,6 +463,7 @@ function parseDropId(overId: string): { parentId: string | null; position: numbe
 }
 
 export default function HierarchyPage() {
+  const router = useRouter();
   const [hierarchy, setHierarchy] = useState<AgentHierarchyNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -524,6 +540,13 @@ export default function HierarchyPage() {
     setActiveId(null);
   }, []);
 
+  const handleAddChild = useCallback(
+    (parentId: string) => {
+      router.push(`/dashboard/agents/new?parent=${encodeURIComponent(parentId)}`);
+    },
+    [router],
+  );
+
   const handleDescriptionChange = useCallback(
     async (agentId: string, description: string | null) => {
       try {
@@ -549,6 +572,13 @@ export default function HierarchyPage() {
   const toolbar = (
     <div className="flex items-center gap-4 border-b border-border px-6 py-3">
       <h2 className="text-sm font-medium text-muted-foreground">Agent Hierarchy</h2>
+      <button
+        onClick={() => router.push("/dashboard/agents/new")}
+        className="flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        New Agent
+      </button>
       {isUpdating && <span className="ml-auto text-xs text-muted-foreground">Saving&hellip;</span>}
       {error && !isUpdating && <span className="ml-auto text-xs text-red-400">{error}</span>}
     </div>
@@ -592,7 +622,7 @@ export default function HierarchyPage() {
                {hierarchy.map((rootNode, i) => (
                  <div key={rootNode.agent.id} className="flex items-start">
                    <div className="px-3">
-                     <TreeNode node={rootNode} activeId={activeId} onDescriptionChange={handleDescriptionChange} />
+                     <TreeNode node={rootNode} activeId={activeId} onDescriptionChange={handleDescriptionChange} onAddChild={handleAddChild} />
                   </div>
                   <DropSlot
                     id={`before:__root__:${i + 1}`}

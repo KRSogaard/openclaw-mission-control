@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, use } from "react";
 import type { AgentView, AgentSummary, ModelInfo, ApiResponse } from "@/lib/types";
+import { getAgentColor } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -26,7 +27,7 @@ function AgentAccessCard({
 }) {
   const isWildcard = current.length === 1 && current[0] === "*";
   const effectiveIds = isWildcard ? allAgents.map((a) => a.id) : current;
-  const allSelected = effectiveIds.length === allAgents.length && allAgents.length > 0;
+  const allSelected = isWildcard || (effectiveIds.length === allAgents.length && allAgents.length > 0);
 
   function handleToggle(id: string) {
     const next = effectiveIds.includes(id)
@@ -193,6 +194,31 @@ export default function AgentDashboardPage({
     }
   }
 
+  async function handleRevokeSpawner(spawnerId: string, isWildcard: boolean) {
+    setIsSavingAccess(true);
+    try {
+      let newList: string[];
+      if (isWildcard) {
+        newList = allAgents
+          .filter((a) => a.id !== agentId && a.id !== spawnerId)
+          .map((a) => a.id);
+      } else {
+        const spawnerRes = await fetch(`/api/agents/${spawnerId}`);
+        const spawnerJson = (await spawnerRes.json()) as ApiResponse<AgentView>;
+        const current = spawnerJson.data?.config.allowedSubagents ?? [];
+        newList = current.filter((id) => id !== agentId && id !== "*");
+      }
+      await fetch(`/api/agents/${spawnerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowedSubagents: newList }),
+      });
+      await refetchAgent();
+    } finally {
+      setIsSavingAccess(false);
+    }
+  }
+
   async function handleAccessUpdate(field: "allowedSubagents" | "agentToAgentPeers", value: string[]) {
     setIsSavingAccess(true);
     try {
@@ -335,8 +361,8 @@ export default function AgentDashboardPage({
           </Card>
 
           <AgentAccessCard
-            title="Sub-agent Access"
-            subtitle="Agents this agent can spawn"
+            title="Spawn Agents"
+            subtitle="Agents this one can spawn for task delegation — one-shot sessions"
             current={agent.config.allowedSubagents}
             allAgents={allAgents}
             isSaving={isSavingAccess}
@@ -344,14 +370,107 @@ export default function AgentDashboardPage({
             onUpdate={(value) => handleAccessUpdate("allowedSubagents", value)}
           />
 
-          <AgentAccessCard
-            title="Agent-to-Agent Peers"
-            subtitle="Agents that can communicate directly"
-            current={agent.config.agentToAgentPeers}
-            allAgents={allAgents}
-            isSaving={isSavingAccess}
-            onUpdate={(value) => handleAccessUpdate("agentToAgentPeers", value)}
-          />
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-foreground text-sm">Communication</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {agent.config.agentToAgentPeers.length > 0
+                      ? "This agent is in the communication pool"
+                      : "This agent cannot message other agents"}
+                  </p>
+                </div>
+                {isSavingAccess && <span className="text-xs text-muted-foreground">Saving...</span>}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agent.config.agentToAgentPeers.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        handleAccessUpdate("agentToAgentPeers", ["*"]);
+                      } else {
+                        handleAccessUpdate("agentToAgentPeers", []);
+                      }
+                    }}
+                    disabled={isSavingAccess}
+                    className="rounded border-border bg-muted text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
+                  />
+                  <span className={`text-sm font-medium ${agent.config.agentToAgentPeers.length > 0 ? "text-emerald-400" : "text-muted-foreground"}`}>
+                    Enable agent-to-agent messaging
+                  </span>
+                </label>
+                {agent.config.agentToAgentPeers.length > 0 && (
+                  <>
+                    <div className="h-px bg-border" />
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      <p className="text-xs text-muted-foreground mb-1">Other agents in the pool:</p>
+                      {agent.config.agentToAgentPeers.filter((id) => id !== "*").length > 0 ? (
+                        agent.config.agentToAgentPeers.filter((id) => id !== "*").map((id) => {
+                          const a = allAgents.find((x) => x.id === id);
+                          const color = getAgentColor(id);
+                          return (
+                            <div key={id} className="flex items-center gap-2 rounded px-1 py-0.5">
+                              <span className={`size-2 rounded-full shrink-0 ${color.dot}`} />
+                              <span className="text-sm text-muted-foreground">{a?.name ?? id}</span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-muted-foreground/50 italic px-1">
+                          All agents can communicate (wildcard)
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-foreground text-sm">Spawnable By</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">Agents that can spawn this one for task delegation</p>
+                </div>
+                {isSavingAccess && <span className="text-xs text-muted-foreground">Saving...</span>}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {agent.config.spawnableBy.length > 0 ? (
+                <div className="space-y-1">
+                  {agent.config.spawnableBy.map((entry) => {
+                    const a = allAgents.find((x) => x.id === entry.agentId);
+                    const color = getAgentColor(entry.agentId);
+                    return (
+                      <div key={entry.agentId} className="group flex items-center gap-2 rounded px-1 py-0.5 hover:bg-muted/50">
+                        <span className={`size-2 rounded-full shrink-0 ${color.dot}`} />
+                        <span className="text-sm text-muted-foreground">{a?.name ?? entry.agentId}</span>
+                        {entry.wildcard && (
+                          <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-700">wildcard</Badge>
+                        )}
+                        <button
+                          onClick={() => handleRevokeSpawner(entry.agentId, entry.wildcard)}
+                          disabled={isSavingAccess}
+                          className="ml-auto text-xs text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all disabled:opacity-50"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground/50 italic">No agents can currently spawn this one</p>
+              )}
+            </CardContent>
+          </Card>
 
           {agent.config.mentionPatterns.length > 0 && (
             <Card className="bg-card border-border">

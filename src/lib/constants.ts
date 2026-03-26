@@ -14,6 +14,14 @@ export const TASK_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+const HIDDEN_AGENT_IDS = new Set(["bridge-commander"]);
+const HIDDEN_AGENT_PREFIXES = ["mc-gateway-"];
+
+export function isVisibleAgent(agentId: string): boolean {
+  if (HIDDEN_AGENT_IDS.has(agentId)) return false;
+  return !HIDDEN_AGENT_PREFIXES.some((p) => agentId.startsWith(p));
+}
+
 export const EVENT_DOT: Record<string, string> = {
   created: "bg-zinc-500",
   dispatched: "bg-sky-500",

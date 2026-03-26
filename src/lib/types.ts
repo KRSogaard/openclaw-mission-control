@@ -41,6 +41,7 @@ export type AgentConfig = {
   mentionPatterns: string[];
   allowedSubagents: string[];
   agentToAgentPeers: string[];
+  spawnableBy: Array<{ agentId: string; wildcard: boolean }>;
   hasHooksAccess: boolean;
   heartbeat: string | null;
 };
@@ -113,4 +114,40 @@ export type FileContent = {
   size: number;
   /** Best-guess language for syntax highlighting */
   language: string | null;
+};
+
+// ── Agent Creation ──────────────────────────────────────────
+
+export type AgentCreateRequest = {
+  name: string;
+  id?: string;
+  model?: string;
+  parentId?: string | null;
+  description?: string | null;
+  workspace?: string;
+  peers?: string[];
+  subagents?: string[];
+  enableHooks?: boolean;
+  addToParentSpawnList?: boolean;
+};
+
+export type AgentGenerateRequest = AgentCreateRequest & {
+  purpose: string;
+  personality?: string | null;
+};
+
+export type GeneratedAgentFiles = {
+  soul: string;
+  identity: string;
+  user: string;
+  agents: string;
+  memory: string;
+  heartbeat: string;
+};
+
+export type AgentCreateResponse = {
+  agentId: string;
+  name: string;
+  workspace: string;
+  model: string;
 };

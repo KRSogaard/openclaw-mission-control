@@ -3,10 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-const BEGIN_MARKER = "<!-- BEGIN:MC_TOOLS -->";
-const END_MARKER = "<!-- END:MC_TOOLS -->";
-const MC_URL = process.env.MC_INTERNAL_URL ?? "http://localhost:3000";
-const TOKEN_FILE_PATH = path.join(os.homedir(), ".openclaw", "credentials", "mc-hooks-token");
+const BEGIN_MARKER = "<!-- BEGIN:BC_TOOLS -->";
+const END_MARKER = "<!-- END:BC_TOOLS -->";
+const BC_URL = process.env.BC_INTERNAL_URL ?? process.env.MC_INTERNAL_URL ?? "http://localhost:3000";
+const TOKEN_FILE_PATH = path.join(os.homedir(), ".openclaw", "credentials", "bc-hooks-token");
 
 let _cachedToken: string | null = null;
 
@@ -33,7 +33,7 @@ export async function getHooksToken(): Promise<string> {
 
 function generateSection(): string {
   return `${BEGIN_MARKER}
-<!-- MC_TOOLS_VERSION: {{HASH}} -->
+<!-- BC_TOOLS_VERSION: {{HASH}} -->
 
 ---
 
@@ -47,9 +47,9 @@ function generateSection(): string {
 Report that an assigned task is done. Call this when you have finished the work.
 
 \`\`\`bash
-curl -s -X POST ${MC_URL}/api/hooks/task \\
+curl -s -X POST ${BC_URL}/api/hooks/task \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/bc-hooks-token)" \\
   -d '{"action":"task.complete","taskId":"<TASK_ID>","result":"<summary of what you did>"}'
 \`\`\`
 
@@ -58,9 +58,9 @@ curl -s -X POST ${MC_URL}/api/hooks/task \\
 Report progress on a running task. Call this periodically for long-running work so Bridge Command knows you're still active.
 
 \`\`\`bash
-curl -s -X POST ${MC_URL}/api/hooks/task \\
+curl -s -X POST ${BC_URL}/api/hooks/task \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/bc-hooks-token)" \\
   -d '{"action":"task.update","taskId":"<TASK_ID>","status":"<what you are currently doing>"}'
 \`\`\`
 
@@ -69,9 +69,9 @@ curl -s -X POST ${MC_URL}/api/hooks/task \\
 Report that a task cannot be completed. Call this when the task is impossible, blocked, or you've been asked to fail it.
 
 \`\`\`bash
-curl -s -X POST ${MC_URL}/api/hooks/task \\
+curl -s -X POST ${BC_URL}/api/hooks/task \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/bc-hooks-token)" \\
   -d '{"action":"task.fail","taskId":"<TASK_ID>","reason":"<why the task failed>"}'
 \`\`\`
 
@@ -80,9 +80,9 @@ curl -s -X POST ${MC_URL}/api/hooks/task \\
 Assign a task to another agent. Only use for agents you are allowed to communicate with.
 
 \`\`\`bash
-curl -s -X POST ${MC_URL}/api/hooks/task \\
+curl -s -X POST ${BC_URL}/api/hooks/task \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/mc-hooks-token)" \\
+  -H "Authorization: Bearer $(cat ~/.openclaw/credentials/bc-hooks-token)" \\
   -d '{"action":"task.create","agentId":"<target_agent_id>","title":"<task title>","description":"<detailed instructions>","createdBy":"<your_agent_id>"}'
 \`\`\`
 
@@ -101,7 +101,7 @@ function hashContent(content: string): string {
 }
 
 function extractVersion(content: string): string | null {
-  const match = content.match(/<!-- MC_TOOLS_VERSION: (\w+) -->/);
+  const match = content.match(/<!-- BC_TOOLS_VERSION: (\w+) -->/);
   return match?.[1] ?? null;
 }
 
@@ -125,6 +125,8 @@ export async function syncToolsToWorkspace(workspacePath: string): Promise<boole
 
   const beginIdx = existing.indexOf(BEGIN_MARKER);
   const endIdx = existing.indexOf(END_MARKER);
+
+
 
   let updated: string;
   if (beginIdx !== -1 && endIdx !== -1) {

@@ -2,10 +2,10 @@ import { eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "./index";
 import { agentHierarchy } from "./schema";
 import { getAgents } from "../openclaw";
-import { syncToolsToWorkspace } from "../mc-tools";
+import { syncToolsToWorkspace } from "../bc-tools";
 import { startTaskLoop } from "../task-dispatcher";
+import { isVisibleAgent } from "../constants";
 
-const SKIP_PREFIXES = ["mc-gateway-"];
 const SYNC_INTERVAL = 10 * 60 * 1000;
 
 type HierarchyRow = {
@@ -22,7 +22,7 @@ let _initialSyncPromise: Promise<void> | null = null;
 
 function getVisibleAgentIds(agents: NonNullable<Awaited<ReturnType<typeof getAgents>>>): string[] {
   return agents
-    .filter((a) => !SKIP_PREFIXES.some((p) => a.id.startsWith(p)))
+    .filter((a) => isVisibleAgent(a.id))
     .map((a) => a.id);
 }
 
@@ -201,6 +201,30 @@ function reorderChildren(
         .run();
     }
   }
+}
+
+export async function addAgentToHierarchy(
+  agentId: string,
+  parentId: string | null,
+  description: string | null,
+): Promise<void> {
+  const db = getDb();
+
+  const existing = db.select().from(agentHierarchy)
+    .where(eq(agentHierarchy.agentId, agentId))
+    .get();
+  if (existing) return;
+
+  const siblings = db.select().from(agentHierarchy)
+    .where(parentId === null ? isNull(agentHierarchy.parentId) : eq(agentHierarchy.parentId, parentId))
+    .all();
+  const maxPosition = siblings.reduce((max, r) => Math.max(max, r.position), -1);
+
+  db.insert(agentHierarchy)
+    .values({ agentId, parentId, position: maxPosition + 1, description })
+    .run();
+
+  _hierarchyCache = db.select().from(agentHierarchy).all();
 }
 
 export async function updateDescription(

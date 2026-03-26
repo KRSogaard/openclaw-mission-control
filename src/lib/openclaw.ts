@@ -62,6 +62,7 @@ type InternalAgentConfig = {
   mentionPatterns: string[];
   allowedSubagents: string[];
   agentToAgentPeers: string[];
+  spawnableBy: Array<{ agentId: string; wildcard: boolean }>;
   hasHooksAccess: boolean;
   heartbeat: string | null;
 };
@@ -294,6 +295,65 @@ export async function updateAgentSubagents(agentId: string, allowAgents: string[
   invalidateConfigCache();
 }
 
+export async function addAgentToSpawnList(parentId: string, childId: string): Promise<void> {
+  const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+  const config = JSON.parse(raw) as OpenClawConfig;
+
+  const parent = config.agents?.list?.find((a) => a.id === parentId);
+  if (!parent) throw new Error(`Agent "${parentId}" not found in config`);
+
+  if (!parent.subagents) parent.subagents = {};
+  const current = parent.subagents.allowAgents ?? [];
+  if (current.includes("*") || current.includes(childId)) return;
+
+  parent.subagents.allowAgents = [...current, childId];
+  await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  invalidateConfigCache();
+}
+
+export async function getSubagentInfoForParent(parentId: string): Promise<Array<{ id: string; name: string; description: string | null }>> {
+  const config = await readConfig();
+  if (!config) return [];
+
+  const parent = config.agents?.list?.find((a) => a.id === parentId);
+  if (!parent) return [];
+
+  const allowed = parent.subagents?.allowAgents ?? [];
+  if (allowed.length === 0) return [];
+
+  const allAgents = config.agents?.list ?? [];
+  const { getHierarchy } = await import("./db/seed");
+  const rows = await getHierarchy();
+  const descMap = new Map(rows.map((r) => [r.agentId, r.description]));
+
+  if (allowed.includes("*")) {
+    return allAgents
+      .filter((a) => a.id !== parentId)
+      .map((a) => ({ id: a.id ?? "", name: a.name ?? a.id ?? "", description: descMap.get(a.id ?? "") ?? null }));
+  }
+
+  return allowed
+    .map((id) => {
+      const a = allAgents.find((x) => x.id === id);
+      return { id, name: a?.name ?? id, description: descMap.get(id) ?? null };
+    });
+}
+
+export async function ensureHooksAccess(agentId: string): Promise<void> {
+  const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+  const config = JSON.parse(raw) as Record<string, unknown>;
+
+  if (!config.hooks) config.hooks = {};
+  const hooks = config.hooks as { allowedAgentIds?: string[] };
+  if (!hooks.allowedAgentIds) hooks.allowedAgentIds = [];
+
+  if (!hooks.allowedAgentIds.includes(agentId)) {
+    hooks.allowedAgentIds.push(agentId);
+    await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+    invalidateConfigCache();
+  }
+}
+
 export async function updateAgentToAgent(agentId: string, peers: string[]): Promise<void> {
   const raw = await fs.readFile(CONFIG_PATH, "utf-8");
   const config = JSON.parse(raw) as Record<string, unknown>;
@@ -304,20 +364,26 @@ export async function updateAgentToAgent(agentId: string, peers: string[]): Prom
   const a2a = tools.agentToAgent as { enabled: boolean; allow: string[] };
 
   a2a.enabled = true;
-  const otherAgents = a2a.allow.filter((id) => id !== agentId);
-  const shouldIncludeSelf = peers.length > 0;
 
-  const newAllow = new Set(otherAgents);
-  for (const peer of peers) {
-    newAllow.add(peer);
-  }
-  if (shouldIncludeSelf) {
-    newAllow.add(agentId);
+  if (peers.length === 1 && peers[0] === "*") {
+    a2a.allow = ["*"];
   } else {
-    newAllow.delete(agentId);
+    const otherAgents = a2a.allow.filter((id) => id !== agentId && id !== "*");
+    const shouldIncludeSelf = peers.length > 0;
+
+    const newAllow = new Set(otherAgents);
+    for (const peer of peers) {
+      newAllow.add(peer);
+    }
+    if (shouldIncludeSelf) {
+      newAllow.add(agentId);
+    } else {
+      newAllow.delete(agentId);
+    }
+
+    a2a.allow = [...newAllow];
   }
 
-  a2a.allow = [...newAllow];
   await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
   invalidateConfigCache();
 }
@@ -380,6 +446,38 @@ export async function getAgents(): Promise<InternalAgent[] | null> {
   });
 }
 
+export async function cleanBootstrapFiles(workspacePath: string): Promise<void> {
+  for (const file of BOOTSTRAP_FILES) {
+    try {
+      await fs.unlink(path.join(workspacePath, file));
+    } catch {
+      continue;
+    }
+  }
+}
+
+export async function copyUserMdFromDefault(targetWorkspacePath: string): Promise<void> {
+  const agents = await getAgents();
+  if (!agents) return;
+  const defaultAgent = agents.find((a) => a.isDefault);
+  const sourceAgent = defaultAgent ?? agents[0];
+  if (!sourceAgent) return;
+
+  const sourcePath = path.join(sourceAgent.workspacePath, "USER.md");
+  const targetPath = path.join(targetWorkspacePath, "USER.md");
+  try {
+    const content = await fs.readFile(sourcePath, "utf-8");
+    await fs.writeFile(targetPath, content, "utf-8");
+  } catch {
+    return;
+  }
+}
+
+export async function agentExists(agentId: string): Promise<boolean> {
+  const agents = await getAgents();
+  return agents?.some((a) => a.id === agentId) ?? false;
+}
+
 export async function getAgent(agentId: string): Promise<InternalAgentDetail | null> {
   const config = await readConfig();
   if (!config) return null;
@@ -407,14 +505,31 @@ export async function getAgent(agentId: string): Promise<InternalAgentDetail | n
   const hooksAgents = config.hooks?.allowedAgentIds ?? [];
   const a2aEnabled = config.tools?.agentToAgent?.enabled ?? false;
   const a2aAll = config.tools?.agentToAgent?.allow ?? [];
-  const a2aPeers = a2aEnabled && a2aAll.includes(agentId)
-    ? a2aAll.filter((id) => id !== agentId)
-    : [];
+  const a2aWildcard = a2aAll.includes("*");
+  const a2aPeers = a2aWildcard
+    ? ["*"]
+    : a2aEnabled && a2aAll.includes(agentId)
+      ? a2aAll.filter((id) => id !== agentId)
+      : [];
+
+  const agentsList = config.agents?.list ?? [];
+  const spawnableBy: Array<{ agentId: string; wildcard: boolean }> = [];
+  for (const other of agentsList) {
+    const otherId = other.id ?? other.name ?? "unknown";
+    if (otherId === agentId) continue;
+    const allowed = other.subagents?.allowAgents ?? [];
+    if (allowed.includes("*")) {
+      spawnableBy.push({ agentId: otherId, wildcard: true });
+    } else if (allowed.includes(agentId)) {
+      spawnableBy.push({ agentId: otherId, wildcard: false });
+    }
+  }
 
   const agentConfig: InternalAgentConfig = {
     mentionPatterns: configAgent?.groupChat?.mentionPatterns ?? [],
     allowedSubagents: configAgent?.subagents?.allowAgents ?? [],
     agentToAgentPeers: a2aPeers,
+    spawnableBy,
     hasHooksAccess: hooksAgents.includes(agentId),
     heartbeat: configAgent?.heartbeat?.every ?? defaultHeartbeat,
   };
