@@ -10,9 +10,9 @@ import type { GeneratedAgentFiles } from "./types";
 
 const execAsync = promisify(exec);
 
-const AGENT_ID = "bridge-commander";
+const AGENT_ID = "bridgecommander";
 const OPENCLAW_HOME = path.join(os.homedir(), ".openclaw");
-const WORKSPACE = path.join(OPENCLAW_HOME, "workspace", "bridge-commander");
+const WORKSPACE = path.join(OPENCLAW_HOME, "workspace", "bridgecommander");
 
 const ASK_TIMEOUT_MS = 120_000;
 const WAIT_TIMEOUT_MS = ASK_TIMEOUT_MS + 10_000;

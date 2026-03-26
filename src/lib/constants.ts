@@ -14,7 +14,7 @@ export const TASK_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const HIDDEN_AGENT_IDS = new Set(["bridge-commander"]);
+const HIDDEN_AGENT_IDS = new Set(["bridgecommander"]);
 const HIDDEN_AGENT_PREFIXES = ["mc-gateway-"];
 
 export function isVisibleAgent(agentId: string): boolean {
