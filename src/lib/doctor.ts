@@ -13,6 +13,8 @@ const EXEC_APPROVALS_FILE = path.join(OPENCLAW_HOME, "exec-approvals.json");
 
 export type CheckStatus = "pass" | "warn" | "fail";
 
+export type AgentType = "full" | "subagent";
+
 export type DiagnosticCheck = {
   id: string;
   category: string;
@@ -20,6 +22,7 @@ export type DiagnosticCheck = {
   status: CheckStatus;
   message: string;
   agentId?: string;
+  agentType?: AgentType;
 };
 
 export type DiagnosticResult = {
@@ -216,18 +219,21 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
     const detail = await getAgent(agent.id);
     if (!detail) continue;
 
-    // Workspace exists
+    const agentType: AgentType = detail.config.spawnableBy.length > 0 && agent.routing.length === 0
+      ? "subagent"
+      : "full";
+
     const wsExists = await fileExists(agent.workspacePath);
     checks.push({
       id: `workspace-${agent.id}`,
       category: "Agents",
-      label: `Workspace directory`,
+      label: "Workspace directory",
       status: wsExists ? "pass" : "fail",
       message: wsExists ? `Exists at ${agent.workspace}` : `Missing: ${agent.workspace}`,
       agentId: agent.id,
+      agentType,
     });
 
-    // TOOLS.md exists and has MC section
     const toolsPath = path.join(agent.workspacePath, "TOOLS.md");
     const toolsExists = await fileExists(toolsPath);
 
@@ -236,51 +242,67 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
       const hasBcTools = toolsContent.includes("<!-- BEGIN:BC_TOOLS -->");
 
       checks.push({
-        id: `tools-mc-${agent.id}`,
+        id: `tools-bc-${agent.id}`,
         category: "Agents",
-        label: `MC tools in TOOLS.md`,
+        label: "BC tools in TOOLS.md",
         status: hasBcTools ? "pass" : "warn",
-        message: hasBcTools ? "Bridge Command tools section present" : "MC tools section missing — will be added on next sync",
+        message: hasBcTools ? "Bridge Command tools section present" : "BC tools section missing — will be added on next sync",
         agentId: agent.id,
+        agentType,
       });
     } else {
       checks.push({
-        id: `tools-mc-${agent.id}`,
+        id: `tools-bc-${agent.id}`,
         category: "Agents",
-        label: `TOOLS.md`,
+        label: "TOOLS.md",
         status: "warn",
         message: "TOOLS.md not found — will be created on next sync",
         agentId: agent.id,
+        agentType,
       });
     }
 
-    // Exec approval for this agent
-    if (approvals) {
-      const agentApproval = approvals.agents?.[agent.id];
-      const hasApproval = agentApproval?.policy === "allow" || approvals.defaults?.policy === "allow";
+    if (agentType === "full") {
+      if (approvals) {
+        const agentApproval = approvals.agents?.[agent.id];
+        const hasApproval = agentApproval?.policy === "allow" || approvals.defaults?.policy === "allow";
 
-      checks.push({
-        id: `exec-${agent.id}`,
-        category: "Agents",
-        label: `Exec auto-approve`,
-        status: hasApproval ? "pass" : "warn",
-        message: hasApproval
-          ? "Exec allowed — task callbacks will work"
-          : "Exec not auto-approved — task callbacks may hang waiting for manual approval",
-        agentId: agent.id,
-      });
-    }
+        checks.push({
+          id: `exec-${agent.id}`,
+          category: "Agents",
+          label: "Exec auto-approve",
+          status: hasApproval ? "pass" : "warn",
+          message: hasApproval
+            ? "Exec allowed — task callbacks will work"
+            : "Exec not auto-approved — task callbacks may hang waiting for manual approval",
+          agentId: agent.id,
+          agentType,
+        });
+      }
 
-    // Channel bindings
-    if (agent.routing.length === 0) {
-      checks.push({
-        id: `channels-${agent.id}`,
-        category: "Agents",
-        label: `Channel bindings`,
-        status: "warn",
-        message: "No channel bindings — agent won't receive external messages",
-        agentId: agent.id,
-      });
+      if (agent.routing.length === 0) {
+        checks.push({
+          id: `channels-${agent.id}`,
+          category: "Agents",
+          label: "Channel bindings",
+          status: "warn",
+          message: "No channel bindings — agent won't receive external messages",
+          agentId: agent.id,
+          agentType,
+        });
+      }
+
+      if (!detail.config.hasHooksAccess) {
+        checks.push({
+          id: `hooks-${agent.id}`,
+          category: "Agents",
+          label: "Hooks access",
+          status: "warn",
+          message: "Not in hooks.allowedAgentIds — task callbacks won't authenticate",
+          agentId: agent.id,
+          agentType,
+        });
+      }
     }
   }
 
@@ -302,12 +324,13 @@ export type FixResult = {
 const FIXABLE_PREFIXES = [
   "bc-internal",
   "hooks-token-",
+  "hooks-",
   "exec-default-policy",
   "exec-default-security",
   "exec-default-fallback",
   "exec-",
   "tools-exec-settings",
-  "tools-mc-",
+  "tools-bc-",
 ];
 
 export function isFixable(checkId: string, status: CheckStatus): boolean {
@@ -347,13 +370,20 @@ export async function fixCheck(checkId: string): Promise<FixResult> {
     return { checkId, fixed: true, message: `Exec auto-approved for ${agentId}` };
   }
 
-  if (checkId.startsWith("tools-mc-")) {
-    const agentId = checkId.replace("tools-mc-", "");
+  if (checkId.startsWith("tools-bc-")) {
+    const agentId = checkId.replace("tools-bc-", "");
     const agents = await getAgents();
     const agent = agents?.find((a) => a.id === agentId);
     if (!agent) return { checkId, fixed: false, message: `Agent ${agentId} not found` };
     await syncToolsToWorkspace(agent.workspacePath);
-    return { checkId, fixed: true, message: "MC tools synced to TOOLS.md" };
+    return { checkId, fixed: true, message: "BC tools synced to TOOLS.md" };
+  }
+
+  if (checkId.startsWith("hooks-") && !checkId.startsWith("hooks-token")) {
+    const agentId = checkId.replace("hooks-", "");
+    const { ensureHooksAccess } = await import("./openclaw");
+    await ensureHooksAccess(agentId);
+    return { checkId, fixed: true, message: `Hooks access granted for ${agentId}` };
   }
 
   return { checkId, fixed: false, message: "Not auto-fixable" };
@@ -404,6 +434,10 @@ async function setExecApproval(target: string): Promise<void> {
 }
 
 const OPENCLAW_CONFIG_FILE = path.join(OPENCLAW_HOME, "openclaw.json");
+
+export async function reapplyExecApprovals(): Promise<void> {
+  await setExecApproval("defaults");
+}
 
 async function fixToolsExec(): Promise<void> {
   type ToolsConfig = { tools?: { exec?: Record<string, string> } };

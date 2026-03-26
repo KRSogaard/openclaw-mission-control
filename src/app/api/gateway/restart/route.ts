@@ -1,6 +1,7 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { checkInAllRunning } from "@/lib/task-dispatcher";
+import { reapplyExecApprovals } from "@/lib/doctor";
 
 const execAsync = promisify(exec);
 
@@ -12,6 +13,7 @@ export async function POST(): Promise<Response> {
 
     setTimeout(() => {
       checkInAllRunning().catch(() => {});
+      reapplyExecApprovals().catch(() => {});
     }, 5_000);
 
     return Response.json({
