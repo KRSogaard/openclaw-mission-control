@@ -11,6 +11,7 @@ const DEFAULT_WORKSPACE = path.join(OPENCLAW_HOME, "workspace");
 
 const BOOTSTRAP_FILES = [
   "AGENTS.md",
+  "BOOTSTRAP.md",
   "SOUL.md",
   "IDENTITY.md",
   "USER.md",
