@@ -10,9 +10,9 @@ import type { GeneratedAgentFiles } from "./types";
 
 const execAsync = promisify(exec);
 
-const AGENT_ID = "bridgecommander";
+const AGENT_ID = "bc-internal";
 const OPENCLAW_HOME = path.join(os.homedir(), ".openclaw");
-const WORKSPACE = path.join(OPENCLAW_HOME, "workspace", "bridgecommander");
+const WORKSPACE = path.join(OPENCLAW_HOME, "workspace", "bc-internal");
 
 const ASK_TIMEOUT_MS = 120_000;
 const WAIT_TIMEOUT_MS = ASK_TIMEOUT_MS + 10_000;
@@ -217,7 +217,7 @@ async function ensureBridgeCommander(): Promise<void> {
 
   if (!exists) {
     await execAsync(
-      `openclaw agents add "BridgeCommander" --workspace "${WORKSPACE}"`,
+      `openclaw agents add "bc-internal" --workspace "${WORKSPACE}"`,
       { timeout: 30_000 },
     );
     invalidateConfigCache();

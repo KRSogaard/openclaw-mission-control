@@ -200,7 +200,7 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
 
   const bcReady = await isBridgeCommanderReady();
   checks.push({
-    id: "bridgecommander",
+    id: "bc-internal",
     category: "Bridge Command",
     label: "BridgeCommander agent",
     status: bcReady ? "pass" : "warn",
@@ -300,7 +300,7 @@ export type FixResult = {
 };
 
 const FIXABLE_PREFIXES = [
-  "bridgecommander",
+  "bc-internal",
   "hooks-token-",
   "exec-default-policy",
   "exec-default-security",
@@ -316,7 +316,7 @@ export function isFixable(checkId: string, status: CheckStatus): boolean {
 }
 
 export async function fixCheck(checkId: string): Promise<FixResult> {
-  if (checkId === "bridgecommander") {
+  if (checkId === "bc-internal") {
     await setupBridgeCommander();
     return { checkId, fixed: true, message: "BridgeCommander agent created and configured" };
   }
