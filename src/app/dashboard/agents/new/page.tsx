@@ -807,8 +807,12 @@ function NewAgentWizard() {
                 </label>
                 <p className="text-xs text-muted-foreground pl-6">
                   {state.generateWithAi
-                    ? "Bridge Command will generate tailored SOUL.md, IDENTITY.md, and other bootstrap files based on your description."
-                    : "Agent will be created with empty bootstrap files."}
+                    ? state.agentType === "subagent"
+                      ? "Bridge Command will generate a tailored AGENTS.md based on your description."
+                      : "Bridge Command will generate tailored SOUL.md, IDENTITY.md, and other bootstrap files based on your description."
+                    : state.agentType === "subagent"
+                      ? "Sub-agent will be created with an empty AGENTS.md."
+                      : "Agent will be created with empty bootstrap files."}
                 </p>
               </CardContent>
             </Card>
