@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import type { GatewayStatus, FileEntry, FileContent } from "./types";
 import { getWsClient } from "./openclaw-ws";
+import { isVisibleAgent } from "./constants";
 
 const OPENCLAW_HOME = path.join(os.homedir(), ".openclaw");
 const CONFIG_PATH = path.join(OPENCLAW_HOME, "openclaw.json");
@@ -328,11 +329,12 @@ export async function getSubagentInfoForParent(parentId: string): Promise<Array<
 
   if (allowed.includes("*")) {
     return allAgents
-      .filter((a) => a.id !== parentId)
+      .filter((a) => a.id !== parentId && isVisibleAgent(a.id ?? ""))
       .map((a) => ({ id: a.id ?? "", name: a.name ?? a.id ?? "", description: descMap.get(a.id ?? "") ?? null }));
   }
 
   return allowed
+    .filter(isVisibleAgent)
     .map((id) => {
       const a = allAgents.find((x) => x.id === id);
       return { id, name: a?.name ?? id, description: descMap.get(id) ?? null };
@@ -509,14 +511,14 @@ export async function getAgent(agentId: string): Promise<InternalAgentDetail | n
   const a2aPeers = a2aWildcard
     ? ["*"]
     : a2aEnabled && a2aAll.includes(agentId)
-      ? a2aAll.filter((id) => id !== agentId)
+      ? a2aAll.filter((id) => id !== agentId && isVisibleAgent(id))
       : [];
 
   const agentsList = config.agents?.list ?? [];
   const spawnableBy: Array<{ agentId: string; wildcard: boolean }> = [];
   for (const other of agentsList) {
     const otherId = other.id ?? other.name ?? "unknown";
-    if (otherId === agentId) continue;
+    if (otherId === agentId || !isVisibleAgent(otherId)) continue;
     const allowed = other.subagents?.allowAgents ?? [];
     if (allowed.includes("*")) {
       spawnableBy.push({ agentId: otherId, wildcard: true });
@@ -525,9 +527,12 @@ export async function getAgent(agentId: string): Promise<InternalAgentDetail | n
     }
   }
 
+  const rawSubagents = configAgent?.subagents?.allowAgents ?? [];
+  const filteredSubagents = rawSubagents[0] === "*" ? rawSubagents : rawSubagents.filter(isVisibleAgent);
+
   const agentConfig: InternalAgentConfig = {
     mentionPatterns: configAgent?.groupChat?.mentionPatterns ?? [],
-    allowedSubagents: configAgent?.subagents?.allowAgents ?? [],
+    allowedSubagents: filteredSubagents,
     agentToAgentPeers: a2aPeers,
     spawnableBy,
     hasHooksAccess: hooksAgents.includes(agentId),
