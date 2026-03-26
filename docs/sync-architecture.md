@@ -24,13 +24,36 @@ Bridge Command runs two independent background loops plus event-driven syncs tha
                                                    └─► Sync parent AGENTS.md
 ```
 
+## Server Boot Sequence
+
+Both background loops start automatically on server boot via the Next.js instrumentation hook — no API request required.
+
+```mermaid
+flowchart TD
+    A["Next.js server starts"] --> B["instrumentation.ts register()"]
+    B --> C{"NEXT_RUNTIME === 'nodejs'?"}
+    C -->|Yes| D["import instrumentation-node.ts"]
+    D --> E{"global.__bcSyncStarted?"}
+    E -->|No| F["startSyncLoop()"]
+    F --> G["runBackgroundSync()"]
+    G --> H["syncAgents() — add/prune agents, sync TOOLS.md"]
+    H --> I["startTaskLoop() — begin 60s dispatch/timeout loop"]
+    I --> J["scheduleSyncLoop() — schedule next sync in 10 min"]
+    E -->|Yes| K["Skip — already running (dev hot-reload guard)"]
+    C -->|No| L["Skip — Edge runtime"]
+```
+
+**Files**:
+- `src/instrumentation.ts` — Next.js hook entry point, gates on Node.js runtime
+- `src/instrumentation-node.ts` — calls `startSyncLoop()` with dev hot-reload guard
+
 ## Background Loops
 
 ### 1. Agent Sync Loop (every 10 min)
 
-**File**: `src/lib/db/seed.ts`
-**Trigger**: Lazily started on first `GET /api/agents/hierarchy`
-**Guard**: Recursive `setTimeout` + `_syncRunning` flag (no overlap)
+**File**: `src/lib/agent-sync.ts`
+**Trigger**: Server boot via `src/instrumentation.ts` → `src/instrumentation-node.ts`
+**Guard**: Recursive `setTimeout` + `_syncRunning` flag (no overlap), `global.__bcSyncStarted` for dev hot-reload safety
 
 ```mermaid
 flowchart TD
@@ -57,7 +80,7 @@ flowchart TD
 ### 2. Task Loop (every 60s)
 
 **File**: `src/lib/task-dispatcher.ts`
-**Trigger**: Started by agent sync loop after first sync
+**Trigger**: Started by agent sync loop on server boot (called from within `runBackgroundSync()`)
 **Guard**: Recursive `setTimeout` + `_loopRunning` flag (no overlap)
 
 ```mermaid

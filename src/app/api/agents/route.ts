@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { getAgents, agentExists, invalidateConfigCache, updateAgentSubagents, updateAgentToAgent, ensureHooksAccess, cleanBootstrapFiles, copyUserMdFromDefault, addAgentToSpawnList, getSubagentInfoForParent } from "@/lib/openclaw";
 import { toAgentSummary } from "@/lib/api-transforms";
-import { getHierarchy, addAgentToHierarchy } from "@/lib/db/seed";
+import { getHierarchy, addAgentToHierarchy } from "@/lib/agent-sync";
 import { syncToolsToWorkspace } from "@/lib/bc-tools";
 import { syncParentSubagentDocs } from "@/lib/bridge-commander";
 import { isVisibleAgent } from "@/lib/constants";

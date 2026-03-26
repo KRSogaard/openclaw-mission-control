@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { agentExists, invalidateConfigCache, updateAgentSubagents, updateAgentToAgent, ensureHooksAccess, cleanBootstrapFiles, copyUserMdFromDefault, addAgentToSpawnList, getSubagentInfoForParent } from "@/lib/openclaw";
-import { addAgentToHierarchy } from "@/lib/db/seed";
+import { addAgentToHierarchy } from "@/lib/agent-sync";
 import { syncToolsToWorkspace } from "@/lib/bc-tools";
 import { generateAgentFiles, syncParentSubagentDocs } from "@/lib/bridge-commander";
 import type { AgentGenerateRequest, AgentCreateResponse, ApiResponse } from "@/lib/types";

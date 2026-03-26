@@ -1,7 +1,7 @@
 import { getAgent, updateAgentModel, updateAgentSubagents, updateAgentToAgent, getSubagentInfoForParent } from "@/lib/openclaw";
 import { syncParentSubagentDocs } from "@/lib/bridge-commander";
 import { toAgentView } from "@/lib/api-transforms";
-import { getHierarchy } from "@/lib/db/seed";
+import { getHierarchy } from "@/lib/agent-sync";
 import type { AgentView, ApiResponse } from "@/lib/types";
 
 export async function GET(

@@ -322,7 +322,7 @@ export async function getSubagentInfoForParent(parentId: string): Promise<Array<
   if (allowed.length === 0) return [];
 
   const allAgents = config.agents?.list ?? [];
-  const { getHierarchy } = await import("./db/seed");
+  const { getHierarchy } = await import("./agent-sync");
   const rows = await getHierarchy();
   const descMap = new Map(rows.map((r) => [r.agentId, r.description]));
 

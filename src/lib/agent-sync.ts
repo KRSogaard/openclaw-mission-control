@@ -1,10 +1,10 @@
 import { eq, inArray, isNull } from "drizzle-orm";
-import { getDb } from "./index";
-import { agentHierarchy } from "./schema";
-import { getAgents } from "../openclaw";
-import { syncToolsToWorkspace } from "../bc-tools";
-import { startTaskLoop } from "../task-dispatcher";
-import { isVisibleAgent } from "../constants";
+import { getDb } from "./db/index";
+import { agentHierarchy } from "./db/schema";
+import { getAgents } from "./openclaw";
+import { syncToolsToWorkspace } from "./bc-tools";
+import { startTaskLoop } from "./task-dispatcher";
+import { isVisibleAgent } from "./constants";
 
 const SYNC_INTERVAL = 10 * 60 * 1000;
 
@@ -26,7 +26,7 @@ function getVisibleAgentIds(agents: NonNullable<Awaited<ReturnType<typeof getAge
     .map((a) => a.id);
 }
 
-function startSyncLoop(): void {
+export function startSyncLoop(): void {
   if (_syncStarted) return;
   _syncStarted = true;
   _initialSyncPromise = runBackgroundSync();
@@ -125,8 +125,6 @@ function inferSubagentRelations(agentIds: string[]): Map<string, string> {
 }
 
 export async function getHierarchy(): Promise<HierarchyRow[]> {
-  startSyncLoop();
-
   if (_initialSyncPromise) {
     await _initialSyncPromise;
     _initialSyncPromise = null;

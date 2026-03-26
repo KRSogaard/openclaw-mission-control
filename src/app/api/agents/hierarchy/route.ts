@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getHierarchy, updateParent, updateDescription } from "@/lib/db/seed";
+import { getHierarchy, updateParent, updateDescription } from "@/lib/agent-sync";
 import { getAgents } from "@/lib/openclaw";
 import { toAgentSummary } from "@/lib/api-transforms";
 import { isVisibleAgent } from "@/lib/constants";
