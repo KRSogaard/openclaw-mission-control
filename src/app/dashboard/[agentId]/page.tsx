@@ -118,6 +118,7 @@ export default function AgentDashboardPage({
   const [isSaving, setIsSaving] = useState(false);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [allAgents, setAllAgents] = useState<AgentSummary[]>([]);
+  const [sideDataLoading, setSideDataLoading] = useState(true);
   const [isSavingModel, setIsSavingModel] = useState(false);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -155,7 +156,7 @@ export default function AgentDashboardPage({
       if (modelsJson.data) setModels(modelsJson.data);
       if (agentsJson.data) setAllAgents(agentsJson.data.filter((a) => a.id !== agentId));
     }
-    fetchSideData().catch(() => {});
+    fetchSideData().catch(() => {}).finally(() => setSideDataLoading(false));
   }, [agentId]);
 
   useEffect(() => {
@@ -384,16 +385,36 @@ export default function AgentDashboardPage({
             </CardContent>
           </Card>
 
-          <AgentAccessCard
-            title="Spawn Agents"
-            subtitle="Agents this one can spawn for task delegation — one-shot sessions"
-            current={agent.config.allowedSubagents}
-            allAgents={allAgents}
-            isSaving={isSavingAccess}
-            supportsWildcard
-            onUpdate={(value) => handleAccessUpdate("allowedSubagents", value)}
-          />
+          {sideDataLoading ? (
+            <Card className="bg-card border-border">
+              <CardHeader><Skeleton className="h-4 w-32 bg-muted" /></CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-5 w-full bg-muted rounded" />
+                <Skeleton className="h-5 w-3/4 bg-muted rounded" />
+                <Skeleton className="h-5 w-5/6 bg-muted rounded" />
+              </CardContent>
+            </Card>
+          ) : (
+            <AgentAccessCard
+              title="Spawn Agents"
+              subtitle="Agents this one can spawn for task delegation — one-shot sessions"
+              current={agent.config.allowedSubagents}
+              allAgents={allAgents}
+              isSaving={isSavingAccess}
+              supportsWildcard
+              onUpdate={(value) => handleAccessUpdate("allowedSubagents", value)}
+            />
+          )}
 
+          {sideDataLoading ? (
+            <Card className="bg-card border-border">
+              <CardHeader><Skeleton className="h-4 w-36 bg-muted" /></CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-5 w-full bg-muted rounded" />
+                <Skeleton className="h-5 w-2/3 bg-muted rounded" />
+              </CardContent>
+            </Card>
+          ) : (
           <Card className="bg-card border-border">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -455,6 +476,7 @@ export default function AgentDashboardPage({
               </div>
             </CardContent>
           </Card>
+          )}
 
           <Card className="bg-card border-border">
             <CardHeader>
@@ -520,21 +542,25 @@ export default function AgentDashboardPage({
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Model</span>
                   <div className="flex items-center gap-2">
-                    <select
-                      value={agent.model}
-                      onChange={(e) => handleModelChange(e.target.value)}
-                      disabled={isSavingModel || models.length === 0}
-                      className="rounded-md bg-muted border border-border px-2 py-1 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
-                    >
-                      {models.length === 0 && (
-                        <option value={agent.model}>{agent.model}</option>
-                      )}
-                      {models.map((m) => (
-                        <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
-                          {m.provider}/{m.id}
-                        </option>
-                      ))}
-                    </select>
+                    {sideDataLoading ? (
+                      <Skeleton className="h-6 w-48 bg-muted rounded" />
+                    ) : (
+                      <select
+                        value={agent.model}
+                        onChange={(e) => handleModelChange(e.target.value)}
+                        disabled={isSavingModel || models.length === 0}
+                        className="rounded-md bg-muted border border-border px-2 py-1 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
+                      >
+                        {models.length === 0 && (
+                          <option value={agent.model}>{agent.model}</option>
+                        )}
+                        {models.map((m) => (
+                          <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
+                            {m.provider}/{m.id}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {isSavingModel && <span className="text-xs text-muted-foreground">Saving...</span>}
                   </div>
                 </div>
