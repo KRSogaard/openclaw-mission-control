@@ -109,6 +109,16 @@ export async function generateAgentFiles(
 const SUBAGENT_MARKER_BEGIN = "<!-- BEGIN:BC_SUBAGENTS -->";
 const SUBAGENT_MARKER_END = "<!-- END:BC_SUBAGENTS -->";
 
+function subagentListHash(subagents: SubagentInfo[]): string {
+  const key = subagents.map((s) => `${s.id}:${s.description ?? ""}`).sort().join("|");
+  return crypto.createHash("sha256").update(key).digest("hex").slice(0, 12);
+}
+
+function extractSubagentVersion(content: string): string | null {
+  const match = content.match(/<!-- BC_SUBAGENTS_VERSION: (\w+) -->/);
+  return match?.[1] ?? null;
+}
+
 export type SubagentInfo = {
   id: string;
   name: string;
@@ -118,6 +128,7 @@ export type SubagentInfo = {
 export async function syncParentSubagentDocs(
   parentId: string,
   subagents: SubagentInfo[],
+  force = false,
 ): Promise<void> {
   const parent = await getAgent(parentId);
   if (!parent) return;
@@ -131,19 +142,24 @@ export async function syncParentSubagentDocs(
     existing = `# ${parent.name} Workspace\n`;
   }
 
+  const currentHash = subagentListHash(subagents);
+  const existingHash = extractSubagentVersion(existing);
+  if (!force && existingHash === currentHash) return;
+
   let section: string;
   if (subagents.length === 0) {
     section = "";
   } else {
+    const versionTag = `<!-- BC_SUBAGENTS_VERSION: ${currentHash} -->`;
     try {
       const prompt = buildSubagentDocsPrompt(parent.name, subagents);
       const raw = await ask(prompt, { tag: "subagent-docs", timeoutMs: 60_000 });
-      section = `${SUBAGENT_MARKER_BEGIN}\n${raw.trim()}\n${SUBAGENT_MARKER_END}`;
+      section = `${SUBAGENT_MARKER_BEGIN}\n${versionTag}\n${raw.trim()}\n${SUBAGENT_MARKER_END}`;
     } catch {
       const lines = subagents.map(
         (s) => `- **${s.name}** (\`${s.id}\`): ${s.description ?? "No description"}`,
       );
-      section = `${SUBAGENT_MARKER_BEGIN}\n## Available Sub-agents\n\n${lines.join("\n")}\n${SUBAGENT_MARKER_END}`;
+      section = `${SUBAGENT_MARKER_BEGIN}\n${versionTag}\n## Available Sub-agents\n\n${lines.join("\n")}\n${SUBAGENT_MARKER_END}`;
     }
   }
 

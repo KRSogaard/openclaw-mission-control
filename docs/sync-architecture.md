@@ -67,13 +67,15 @@ flowchart TD
     G --> H[Reparent orphaned children to root]
     F -->|No| I[Sync TOOLS.md to all workspaces]
     H --> I
-    I --> J[Start task loop if not running]
-    J --> K[Refresh hierarchy cache]
+    I --> J[Sync AGENTS.md subagent docs - hash check, skip if unchanged]
+    J --> K[Start task loop if not running]
+    K --> L[Refresh hierarchy cache]
 ```
 
 **What it syncs**:
 - `agent_hierarchy` table ← `openclaw.json` agents list
-- `TOOLS.md` in each agent's workspace ← `bc-tools.ts` generated section
+- `TOOLS.md` in each agent's workspace ← `bc-tools.ts` generated section (content-hashed)
+- `AGENTS.md` subagent section in each parent's workspace ← `bridge-commander.ts` generated guide (list-hashed, only re-generates via BridgeCommander when spawn list changes)
 
 **Filtering**: `isVisibleAgent()` excludes `mc-gateway-*` (OpenClaw internal) and `bridge-commander` (Bridge Command internal).
 
@@ -152,8 +154,11 @@ flowchart TD
 ```
 
 **Triggered by**:
+- Agent sync loop (all agents, every 10 min — hash-checked, skips if unchanged)
 - Agent creation as subagent (`addToParentSpawnList: true`)
 - Spawn list changes via `PATCH /api/agents/{id}` (allowedSubagents)
+
+**Change detection**: Hashes the sorted subagent ID + description list. Stores hash as `<!-- BC_SUBAGENTS_VERSION: {hash} -->` inside the markers. Only calls BridgeCommander when the hash differs — periodic sync is cheap for unchanged lists.
 
 **Uses BridgeCommander** to generate contextual descriptions of when/why to use each sub-agent. Falls back to a plain list if BridgeCommander is unavailable.
 
@@ -247,5 +252,6 @@ sequenceDiagram
 | `<!-- BEGIN:BC_TOOLS -->` | TOOLS.md | Bridge Command task callback tools |
 | `<!-- BC_TOOLS_VERSION: {hash} -->` | TOOLS.md | Content hash for skip-if-unchanged |
 | `<!-- BEGIN:BC_SUBAGENTS -->` | AGENTS.md | Available sub-agents guide for parent |
+| `<!-- BC_SUBAGENTS_VERSION: {hash} -->` | AGENTS.md | Subagent list hash for skip-if-unchanged |
 
 All marker sections are fully managed by Bridge Command — content between markers is overwritten on each sync. Content outside markers is preserved.

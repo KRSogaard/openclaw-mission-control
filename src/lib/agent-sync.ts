@@ -1,8 +1,9 @@
 import { eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "./db/index";
 import { agentHierarchy } from "./db/schema";
-import { getAgents } from "./openclaw";
+import { getAgents, getSubagentInfoForParent } from "./openclaw";
 import { syncToolsToWorkspace } from "./bc-tools";
+import { syncParentSubagentDocs } from "./bridge-commander";
 import { startTaskLoop } from "./task-dispatcher";
 import { isVisibleAgent } from "./constants";
 
@@ -106,6 +107,11 @@ async function syncAgents() {
   await Promise.all(
     visibleAgents.map((a) => syncToolsToWorkspace(a.workspacePath))
   );
+
+  for (const agent of visibleAgents) {
+    const subagents = await getSubagentInfoForParent(agent.id);
+    await syncParentSubagentDocs(agent.id, subagents).catch(() => {});
+  }
 }
 
 function inferSubagentRelations(agentIds: string[]): Map<string, string> {
