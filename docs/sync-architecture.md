@@ -19,9 +19,9 @@ Bridge Command runs two independent background loops plus event-driven syncs tha
           ├─► Add new agents to DB                 ├─► openclaw agents add (CLI)
           ├─► Prune removed agents                 ├─► Write workspace files
           ├─► Reparent orphaned children           ├─► Update hierarchy DB
-          └─► Sync TOOLS.md to all workspaces      ├─► Sync TOOLS.md
-                                                   ├─► Configure relationships
-                                                   └─► Sync parent AGENTS.md
+          ├─► Sync TOOLS.md to all workspaces      ├─► Sync TOOLS.md
+          └─► Sync AGENTS.md subagent docs         ├─► Configure relationships
+              (hash-checked, BridgeCommander)       └─► Sync parent AGENTS.md
 ```
 
 ## Server Boot Sequence
