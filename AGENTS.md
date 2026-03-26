@@ -23,7 +23,8 @@ src/
 │   │   ├── gateway/restart/            # POST — restart OpenClaw gateway
 │   │   ├── hooks/task/                 # POST — agent callback (task.complete/fail/update/create)
 │   │   ├── agents/
-│   │   │   ├── route.ts                # GET — agent list (browser-safe, no server paths)
+│   │   │   ├── route.ts                # GET — agent list | POST — create agent (quick, via CLI)
+│   │   │   ├── generate/               # POST — create agent with AI-generated files (via BridgeCommander)
 │   │   │   ├── hierarchy/              # GET — agent tree | PUT — reparent | PATCH — description
 │   │   │   └── [id]/
 │   │   │       ├── route.ts            # GET — agent detail | PATCH — update model/subagents/peers
@@ -38,7 +39,9 @@ src/
 │   ├── dashboard/
 │   │   ├── page.tsx                    # Default view = hierarchy (org chart, drag-and-drop)
 │   │   ├── hierarchy/page.tsx          # Same component (kept in sync with page.tsx)
-│   │   ├── agents/page.tsx             # Agent list view (detail rows)
+│   │   ├── agents/
+│   │   │   ├── page.tsx                # Agent list view (detail rows)
+│   │   │   └── new/page.tsx            # Agent creation wizard (Full Agent / Spawnable Sub-agent)
 │   │   ├── tasks/page.tsx              # Global task board — all agents, color-coded, filterable
 │   │   ├── server/page.tsx             # Live server stats (CPU, memory, disk, uptime)
 │   │   ├── settings/page.tsx           # Global task settings (timeout, retries, concurrency)
@@ -51,20 +54,23 @@ src/
 │   │       │   └── [taskId]/page.tsx   # Task detail — Captain's Log, conversation, retry/complete/check-in/delete
 │   │       ├── files/page.tsx          # File browser with CodeMirror editor, image preview
 │   │       └── settings/page.tsx       # Per-agent task setting overrides
+├── instrumentation.ts                   # Next.js hook — starts background loops on server boot
+├── instrumentation-node.ts              # Node.js-only startup — calls startSyncLoop()
 ├── lib/
 │   ├── openclaw.ts                     # Server-only: reads ~/.openclaw/openclaw.json, filesystem ops, chat history
 │   ├── openclaw-ws.ts                  # Server-only: WebSocket client (challenge-response auth, cli mode)
 │   ├── api-transforms.ts              # Internal types → browser-safe DTOs (strips paths)
 │   ├── types.ts                        # Browser-safe API types ONLY
 │   ├── task-dispatcher.ts             # Per-agent task queue, timeout/retry, dispatches via chat.send
-│   ├── mc-tools.ts                     # Tool manifest sync — appends to agent TOOLS.md with version markers
-│   ├── doctor.ts                       # System diagnostics — checks gateway, hooks, exec approvals, tools sync
+│   ├── bc-tools.ts                     # Tool manifest sync — appends to agent TOOLS.md with BC_TOOLS markers
+│   ├── bridge-commander.ts            # BridgeCommander AI service — ask(), generateAgentFiles(), syncParentSubagentDocs()
+│   ├── agent-sync.ts                  # Background sync loop (10 min) — agent add/prune, TOOLS.md sync, subagent docs sync
+│   ├── doctor.ts                       # System diagnostics — checks gateway, hooks, exec approvals, tools sync, BridgeCommander
 │   ├── format.ts                       # Shared date/time/byte formatting (formatDateTime, formatTimestamp, formatBytes, etc.)
-│   ├── constants.ts                    # Shared constants (TASK_STATUS_BADGE, TASK_STATUS_LABEL, EVENT_DOT)
+│   ├── constants.ts                    # Shared constants (TASK_STATUS_BADGE, TASK_STATUS_LABEL, EVENT_DOT, isVisibleAgent)
 │   ├── db/
 │   │   ├── schema.ts                  # Drizzle schema (agent_hierarchy, agent_tasks, agent_task_events, agent_task_settings, global_settings)
-│   │   ├── index.ts                   # SQLite singleton, auto-creates tables on first access, versioned migrations
-│   │   └── seed.ts                    # Auto-sync: adds new agents, prunes removed, syncs tool manifests
+│   │   └── index.ts                   # SQLite singleton, auto-creates tables on first access, versioned migrations
 │   └── utils.ts                       # shadcn cn() helper, toStardate(), getAgentColor()
 ├── components/
 │   ├── task-card.tsx                  # Shared task card (used by both kanban boards)
@@ -145,11 +151,12 @@ Indexes:
 - `idx_tasks_status` — standalone on (status) for the timeout loop
 - `idx_task_events_task` — composite on (task_id, timestamp) for event ordering
 
-On every `GET /api/agents/hierarchy`:
+On server boot (via `instrumentation.ts`), the agent sync loop starts immediately and runs every 10 minutes:
 - New agents in OpenClaw config → auto-added (name-prefix inference for sub-agents)
 - Removed agents → pruned, orphaned children reparented to root
-- Tool manifests synced to each agent's TOOLS.md
-- Hooks auth token ensured at `~/.openclaw/credentials/mc-hooks-token`
+- Tool manifests synced to each agent's TOOLS.md (`<!-- BEGIN:BC_TOOLS -->` markers, content-hashed)
+- Subagent docs synced to each parent's AGENTS.md (`<!-- BEGIN:BC_SUBAGENTS -->` markers, list-hashed, uses BridgeCommander)
+- Hooks auth token ensured at `~/.openclaw/credentials/bc-hooks-token`
 
 ## Task System
 
@@ -195,17 +202,17 @@ Agents report back via `exec` + `curl` to `POST /api/hooks/task`:
 
 Callbacks on terminal-state tasks are silently ignored (idempotent).
 
-Tool definitions are appended to each agent's `TOOLS.md` between `<!-- BEGIN:MC_TOOLS -->` / `<!-- END:MC_TOOLS -->` markers. Content-hashed for automatic updates.
+Tool definitions are appended to each agent's `TOOLS.md` between `<!-- BEGIN:BC_TOOLS -->` / `<!-- END:BC_TOOLS -->` markers. Content-hashed for automatic updates.
 
-Auth token auto-generated at `~/.openclaw/credentials/mc-hooks-token` (mode 600). Agents read it at curl time via `$(cat ~/.openclaw/credentials/mc-hooks-token)`.
+Auth token auto-generated at `~/.openclaw/credentials/bc-hooks-token` (mode 600). Agents read it at curl time via `$(cat ~/.openclaw/credentials/bc-hooks-token)`.
 
 ### Background Loops
 
 Two independent non-overlapping loops, both using recursive `setTimeout` + running guards:
-- **Sync loop** (10 min) — syncs agents from OpenClaw config, prunes removed, syncs TOOLS.md
+- **Sync loop** (10 min) — syncs agents from OpenClaw config, prunes removed, syncs TOOLS.md, syncs subagent docs to parent AGENTS.md
 - **Task loop** (60s) — dispatches queued tasks, checks timeouts
 
-Both started lazily on first `GET /api/agents/hierarchy`.
+Both started on server boot via `src/instrumentation.ts` → `src/instrumentation-node.ts` → `startSyncLoop()`.
 
 ## Commands
 
@@ -217,10 +224,11 @@ npm run build        # Production build (Turbopack)
 ## Anti-Patterns
 
 ### General
-- Never import from `openclaw.ts`, `openclaw-ws.ts`, `task-dispatcher.ts`, `mc-tools.ts`, or `doctor.ts` in client components
+- Never import from `openclaw.ts`, `openclaw-ws.ts`, `task-dispatcher.ts`, `bc-tools.ts`, `bridge-commander.ts`, `agent-sync.ts`, or `doctor.ts` in client components
 - Never expose `workspacePath` or absolute paths in API responses
 - Never suppress types: no `as any`, `@ts-ignore`, `@ts-expect-error`
 - `dashboard/page.tsx` and `dashboard/hierarchy/page.tsx` must stay identical (always `cp` after edits)
+- Never use `MC_` prefixes — all markers and credentials use `BC_` (Bridge Command)
 
 ### Frontend
 - Never use `window.confirm`, `window.prompt`, or `window.alert` — use `useConfirmDialog` / `usePromptDialog`
@@ -250,7 +258,7 @@ npm run build        # Production build (Turbopack)
 ```
 OPENCLAW_URL=http://localhost:18789    # Gateway URL (server-side only)
 OPENCLAW_TOKEN=...                     # Gateway auth token (server-side only)
-MC_INTERNAL_URL=http://localhost:3000  # URL agents curl to report task status (optional)
+BC_INTERNAL_URL=http://localhost:3000  # URL agents curl to report task status (optional, fallback: MC_INTERNAL_URL)
 ```
 
-`.env.local` for local dev, `.env.example` as template. `MC_HOOKS_TOKEN` is auto-generated at `~/.openclaw/credentials/mc-hooks-token` — not configured manually.
+`.env.local` for local dev, `.env.example` as template. `BC_HOOKS_TOKEN` is auto-generated at `~/.openclaw/credentials/bc-hooks-token` — not configured manually.
