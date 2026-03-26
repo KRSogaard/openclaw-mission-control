@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, use } from "react";
+import { useRouter } from "next/navigation";
 import type { AgentView, AgentSummary, ModelInfo, ApiResponse } from "@/lib/types";
 import { getAgentColor } from "@/lib/utils";
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -106,6 +108,8 @@ export default function AgentDashboardPage({
   params: Promise<{ agentId: string }>;
 }) {
   const { agentId } = use(params);
+  const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [agent, setAgent] = useState<AgentView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -233,6 +237,25 @@ export default function AgentDashboardPage({
     }
   }
 
+  async function handleDeleteAgent() {
+    const confirmed = await confirm({
+      title: `Delete ${agent?.name ?? agentId}?`,
+      description: "This will remove the agent from OpenClaw, delete its hierarchy entry, and clean up all spawn list and communication references. The agent's workspace files will remain on disk. This cannot be undone.",
+      confirmLabel: "Delete Agent",
+      destructive: true,
+      onConfirm: () => {},
+    });
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/agents/${agentId}`, { method: "DELETE" });
+    const json = (await res.json()) as ApiResponse<{ ok: boolean }>;
+    if (json.error) {
+      setError(json.error.message);
+      return;
+    }
+    router.push("/dashboard");
+  }
+
   if (loading) {
     return (
       <div className="p-6 space-y-6">
@@ -253,6 +276,7 @@ export default function AgentDashboardPage({
   }
 
   return (
+    <>
     <div className="flex-1 overflow-auto p-6 space-y-6">
       <Card className="bg-card border-border">
           <CardHeader>
@@ -534,6 +558,32 @@ export default function AgentDashboardPage({
             </CardContent>
           </Card>
         </div>
+
+        {!agent.isDefault && (
+          <Card className="bg-card border-red-900/50">
+            <CardHeader>
+              <CardTitle className="text-red-400 text-sm">Danger Zone</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-foreground">Delete this agent</p>
+                  <p className="text-xs text-muted-foreground">Removes from OpenClaw config, hierarchy, and all relationship references</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteAgent}
+                  className="border-red-800 text-red-400 hover:bg-red-950 hover:text-red-300"
+                >
+                  Delete Agent
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+      {ConfirmDialog}
+    </>
   );
 }

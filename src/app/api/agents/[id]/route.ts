@@ -1,7 +1,7 @@
-import { getAgent, updateAgentModel, updateAgentSubagents, updateAgentToAgent, getSubagentInfoForParent } from "@/lib/openclaw";
+import { getAgent, updateAgentModel, updateAgentSubagents, updateAgentToAgent, getSubagentInfoForParent, removeAgentFromConfig } from "@/lib/openclaw";
 import { syncParentSubagentDocs } from "@/lib/bridge-commander";
 import { toAgentView } from "@/lib/api-transforms";
-import { getHierarchy } from "@/lib/agent-sync";
+import { getHierarchy, removeAgentFromHierarchy } from "@/lib/agent-sync";
 import type { AgentView, ApiResponse } from "@/lib/types";
 
 export async function GET(
@@ -27,6 +27,41 @@ export async function GET(
     return Response.json(
       { error: { code: "AGENT_ERROR", message } } satisfies ApiResponse<AgentView>,
       { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Response> {
+  const { id } = await params;
+
+  try {
+    const agent = await getAgent(id);
+    if (!agent) {
+      return Response.json(
+        { error: { code: "NOT_FOUND", message: `Agent "${id}" not found` } },
+        { status: 404 },
+      );
+    }
+
+    if (agent.isDefault) {
+      return Response.json(
+        { error: { code: "FORBIDDEN", message: "Cannot delete the default agent" } },
+        { status: 403 },
+      );
+    }
+
+    await removeAgentFromConfig(id);
+    removeAgentFromHierarchy(id);
+
+    return Response.json({ data: { ok: true } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to delete agent";
+    return Response.json(
+      { error: { code: "DELETE_ERROR", message } },
+      { status: 500 },
     );
   }
 }

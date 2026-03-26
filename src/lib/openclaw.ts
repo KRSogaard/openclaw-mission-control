@@ -312,6 +312,38 @@ export async function addAgentToSpawnList(parentId: string, childId: string): Pr
   invalidateConfigCache();
 }
 
+export async function removeAgentFromConfig(agentId: string): Promise<void> {
+  const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+  const config = JSON.parse(raw) as OpenClawConfig;
+
+  if (!config.agents?.list) throw new Error("No agents in config");
+  const idx = config.agents.list.findIndex((a) => a.id === agentId);
+  if (idx === -1) throw new Error(`Agent "${agentId}" not found in config`);
+
+  config.agents.list.splice(idx, 1);
+
+  for (const other of config.agents.list) {
+    const subs = other.subagents?.allowAgents;
+    if (subs) {
+      other.subagents!.allowAgents = subs.filter((id) => id !== agentId);
+    }
+  }
+
+  const a2a = (config as Record<string, unknown>).tools as Record<string, unknown> | undefined;
+  const a2aAllow = (a2a?.agentToAgent as { allow?: string[] } | undefined)?.allow;
+  if (a2aAllow) {
+    (a2a!.agentToAgent as { allow: string[] }).allow = a2aAllow.filter((id) => id !== agentId);
+  }
+
+  const hooks = config.hooks as { allowedAgentIds?: string[] } | undefined;
+  if (hooks?.allowedAgentIds) {
+    hooks.allowedAgentIds = hooks.allowedAgentIds.filter((id) => id !== agentId);
+  }
+
+  await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  invalidateConfigCache();
+}
+
 export async function getSubagentInfoForParent(parentId: string): Promise<Array<{ id: string; name: string; description: string | null }>> {
   const config = await readConfig();
   if (!config) return [];

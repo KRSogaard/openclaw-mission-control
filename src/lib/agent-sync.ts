@@ -166,6 +166,21 @@ export async function updateParent(
   _hierarchyCache = db.select().from(agentHierarchy).all();
 }
 
+export function removeAgentFromHierarchy(agentId: string): void {
+  const db = getDb();
+
+  db.update(agentHierarchy)
+    .set({ parentId: null })
+    .where(eq(agentHierarchy.parentId, agentId))
+    .run();
+
+  db.delete(agentHierarchy)
+    .where(eq(agentHierarchy.agentId, agentId))
+    .run();
+
+  _hierarchyCache = db.select().from(agentHierarchy).all();
+}
+
 function parentFilter(parentId: string | null) {
   return parentId === null
     ? isNull(agentHierarchy.parentId)
