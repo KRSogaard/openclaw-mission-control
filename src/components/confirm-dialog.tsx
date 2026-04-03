@@ -137,3 +137,71 @@ export function usePromptDialog() {
 
   return { prompt, PromptDialog: dialog };
 }
+
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
+type SelectState = {
+  open: boolean;
+  title: string;
+  description: string;
+  options: SelectOption[];
+  confirmLabel?: string;
+  onConfirm: (value: string) => void;
+};
+
+export function useSelectDialog() {
+  const [state, setState] = useState<SelectState & { value: string }>({
+    open: false,
+    title: "",
+    description: "",
+    options: [],
+    value: "",
+    onConfirm: () => {},
+  });
+
+  const select = useCallback(
+    (opts: Omit<SelectState, "open">) => {
+      setState({
+        ...opts,
+        open: true,
+        value: opts.options[0]?.value ?? "",
+        onConfirm: opts.onConfirm,
+      });
+    },
+    [],
+  );
+
+  const dialog = (
+    <AlertDialog open={state.open} onOpenChange={(open) => { if (!open) setState((s) => ({ ...s, open: false })); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{state.title}</AlertDialogTitle>
+          <AlertDialogDescription>{state.description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <select
+          value={state.value}
+          onChange={(e) => setState((s) => ({ ...s, value: e.target.value }))}
+          className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          {state.options.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => { state.onConfirm(state.value); setState((s) => ({ ...s, open: false })); }}
+            disabled={!state.value}
+          >
+            {state.confirmLabel ?? "Select"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  return { select, SelectDialog: dialog };
+}

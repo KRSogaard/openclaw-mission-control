@@ -18,10 +18,10 @@ export async function GET(): Promise<Response> {
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
-    const body = (await request.json()) as { action: "fix" | "fix-all"; checkId?: string };
+    const body = (await request.json()) as { action: "fix" | "fix-all"; checkId?: string; params?: Record<string, string> };
 
     if (body.action === "fix" && body.checkId) {
-      const result = await fixCheck(body.checkId);
+      const result = await fixCheck(body.checkId, body.params);
       return Response.json({ data: result } satisfies ApiResponse<FixResult>);
     }
 

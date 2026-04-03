@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useConfirmDialog } from "@/components/confirm-dialog";
+import { useConfirmDialog, useSelectDialog } from "@/components/confirm-dialog";
 
 type CheckStatus = "pass" | "warn" | "fail";
 type AgentType = "full" | "subagent";
@@ -47,7 +47,7 @@ const STATUS_BADGE: Record<CheckStatus, string> = {
   fail: "bg-red-900/50 text-red-400 border border-red-700/50",
 };
 
-const FIXABLE_PREFIXES = ["bc-internal", "hooks-token-", "hooks-", "exec-default-policy", "exec-default-security", "exec-default-fallback", "exec-", "tools-exec-settings", "tools-bc-"];
+const FIXABLE_PREFIXES = ["bc-internal", "hooks-token-", "hooks-", "exec-default-policy", "exec-default-security", "exec-default-fallback", "exec-", "tools-exec-settings", "tools-bc-", "fallback-model-"];
 function isFixable(checkId: string, status: CheckStatus): boolean {
   if (status === "pass") return false;
   return FIXABLE_PREFIXES.some((p) => checkId.startsWith(p));
@@ -94,6 +94,7 @@ export default function DoctorPage() {
   const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { select, SelectDialog } = useSelectDialog();
 
   async function runChecks() {
     setLoading(true);
@@ -114,6 +115,11 @@ export default function DoctorPage() {
   }
 
   async function handleFix(checkId: string) {
+    if (checkId.startsWith("fallback-model-")) {
+      const agentId = checkId.replace("fallback-model-", "");
+      handleFixFallbackModel(checkId, agentId);
+      return;
+    }
     setFixing(checkId);
     try {
       await fetch("/api/doctor", {
@@ -125,6 +131,44 @@ export default function DoctorPage() {
     } finally {
       setFixing(null);
     }
+  }
+
+  async function handleFixFallbackModel(checkId: string, agentId: string) {
+    type ModelInfo = { id: string; name: string; provider: string };
+    type AgentInfo = { model: string };
+
+    const [modelsRes, agentRes] = await Promise.all([
+      fetch("/api/models").then((r) => r.json()) as Promise<{ data?: ModelInfo[] }>,
+      fetch(`/api/agents/${agentId}`).then((r) => r.json()) as Promise<{ data?: AgentInfo }>,
+    ]);
+
+    const models = modelsRes.data ?? [];
+    const currentModel = agentRes.data?.model ?? "";
+    const options = models
+      .filter((m) => m.id !== currentModel && `${m.provider}/${m.id}` !== currentModel)
+      .map((m) => ({ value: m.id, label: `${m.name} (${m.provider})` }));
+
+    if (options.length === 0) return;
+
+    select({
+      title: "Select fallback model",
+      description: `Choose a fallback model for ${agentId}. Current primary: ${currentModel}`,
+      options,
+      confirmLabel: "Set fallback",
+      onConfirm: async (modelId) => {
+        setFixing(checkId);
+        try {
+          await fetch("/api/doctor", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "fix", checkId, params: { modelId } }),
+          });
+          await runChecks();
+        } finally {
+          setFixing(null);
+        }
+      },
+    });
   }
 
   async function handleFixAll() {
@@ -372,6 +416,7 @@ export default function DoctorPage() {
         </div>
       )}
       {ConfirmDialog}
+      {SelectDialog}
     </div>
   );
 }

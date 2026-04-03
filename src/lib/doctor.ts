@@ -76,6 +76,14 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
   // Tools.exec config in openclaw.json
   type OpenClawConfig = {
     tools?: { allow?: string[]; exec?: { security?: string; ask?: string } };
+    agents?: {
+      defaults?: { model?: { primary?: string; fallback?: string } };
+      list?: Array<{
+        id?: string;
+        name?: string;
+        model?: string | { primary?: string; fallback?: string };
+      }>;
+    };
   };
   const openclawConfig = await readJsonSafe<OpenClawConfig>(
     path.join(OPENCLAW_HOME, "openclaw.json"),
@@ -262,6 +270,26 @@ export async function runDiagnostics(): Promise<DiagnosticResult> {
       });
     }
 
+    const configAgent = openclawConfig?.agents?.list?.find((a) => a.id === agent.id);
+    const agentModelConfig = configAgent?.model;
+    const hasAgentFallback = typeof agentModelConfig === "object" && !!agentModelConfig?.fallback;
+    const hasDefaultFallback = !!openclawConfig?.agents?.defaults?.model?.fallback;
+    const hasFallbackModel = hasAgentFallback || hasDefaultFallback;
+
+    checks.push({
+      id: `fallback-model-${agent.id}`,
+      category: "Agents",
+      label: "Fallback model",
+      status: hasFallbackModel ? "pass" : "warn",
+      message: hasFallbackModel
+        ? hasAgentFallback
+          ? `Fallback: ${(agentModelConfig as { fallback: string }).fallback}`
+          : `Using default fallback: ${openclawConfig!.agents!.defaults!.model!.fallback}`
+        : "No fallback model configured — if the primary model is unavailable, the agent cannot work",
+      agentId: agent.id,
+      agentType,
+    });
+
     if (agentType === "full") {
       if (approvals) {
         const agentApproval = approvals.agents?.[agent.id];
@@ -331,6 +359,7 @@ const FIXABLE_PREFIXES = [
   "exec-",
   "tools-exec-settings",
   "tools-bc-",
+  "fallback-model-",
 ];
 
 export function isFixable(checkId: string, status: CheckStatus): boolean {
@@ -338,7 +367,7 @@ export function isFixable(checkId: string, status: CheckStatus): boolean {
   return FIXABLE_PREFIXES.some((p) => checkId.startsWith(p));
 }
 
-export async function fixCheck(checkId: string): Promise<FixResult> {
+export async function fixCheck(checkId: string, params?: Record<string, string>): Promise<FixResult> {
   if (checkId === "bc-internal") {
     await setupBridgeCommander();
     return { checkId, fixed: true, message: "BridgeCommander agent created and configured" };
@@ -384,6 +413,17 @@ export async function fixCheck(checkId: string): Promise<FixResult> {
     const { ensureHooksAccess } = await import("./openclaw");
     await ensureHooksAccess(agentId);
     return { checkId, fixed: true, message: `Hooks access granted for ${agentId}` };
+  }
+
+  if (checkId.startsWith("fallback-model-")) {
+    const agentId = checkId.replace("fallback-model-", "");
+    const modelId = params?.modelId;
+    if (!modelId) {
+      return { checkId, fixed: false, message: "Model selection required" };
+    }
+    const { updateAgentFallbackModel } = await import("./openclaw");
+    await updateAgentFallbackModel(agentId, modelId);
+    return { checkId, fixed: true, message: `Fallback model set to ${modelId}` };
   }
 
   return { checkId, fixed: false, message: "Not auto-fixable" };

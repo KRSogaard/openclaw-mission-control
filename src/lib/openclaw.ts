@@ -79,7 +79,7 @@ type OpenClawConfigAgent = {
   id?: string;
   name?: string;
   default?: boolean;
-  model?: string | { primary?: string };
+  model?: string | { primary?: string; fallback?: string };
   workspace?: string | string[];
   agentDir?: string;
   identity?: { name?: string };
@@ -219,6 +219,27 @@ export async function updateAgentModel(agentId: string, modelId: string): Promis
   if (!agent) throw new Error(`Agent "${agentId}" not found in config`);
 
   agent.model = modelId;
+  await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  invalidateConfigCache();
+}
+
+export async function updateAgentFallbackModel(agentId: string, fallbackModelId: string): Promise<void> {
+  const raw = await fs.readFile(CONFIG_PATH, "utf-8");
+  const config = JSON.parse(raw) as OpenClawConfig;
+
+  const agent = config.agents?.list?.find((a) => a.id === agentId);
+  if (!agent) throw new Error(`Agent "${agentId}" not found in config`);
+
+  const defaultModel = config.agents?.defaults?.model?.primary ?? "unknown";
+
+  if (typeof agent.model === "string") {
+    agent.model = { primary: agent.model, fallback: fallbackModelId };
+  } else if (typeof agent.model === "object" && agent.model) {
+    agent.model.fallback = fallbackModelId;
+  } else {
+    agent.model = { primary: defaultModel, fallback: fallbackModelId };
+  }
+
   await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
   invalidateConfigCache();
 }
