@@ -5,6 +5,10 @@ import os from "node:os";
 
 const BEGIN_MARKER = "<!-- BEGIN:BC_TOOLS -->";
 const END_MARKER = "<!-- END:BC_TOOLS -->";
+const MC_BEGIN_MARKER = "<!-- BEGIN:MC_TOOLS -->";
+const MC_END_MARKER = "<!-- END:MC_TOOLS -->";
+const BC_BLOCK_RE = new RegExp(String.raw`${BEGIN_MARKER}[\s\S]*?${END_MARKER}`, "g");
+const MC_BLOCK_RE = new RegExp(String.raw`${MC_BEGIN_MARKER}[\s\S]*?${MC_END_MARKER}`, "g");
 const BC_URL = process.env.BC_INTERNAL_URL ?? process.env.MC_INTERNAL_URL ?? "http://localhost:3000";
 const TOKEN_FILE_PATH = path.join(os.homedir(), ".openclaw", "credentials", "bc-hooks-token");
 
@@ -120,20 +124,16 @@ export async function syncToolsToWorkspace(workspacePath: string): Promise<boole
     return true;
   }
 
+  const bcCount = (existing.match(/<!-- BEGIN:BC_TOOLS -->/g) || []).length;
+  const mcCount = (existing.match(/<!-- BEGIN:MC_TOOLS -->/g) || []).length;
   const existingHash = extractVersion(existing);
-  if (existingHash === sectionHash) return false;
+  if (bcCount === 1 && mcCount === 0 && existingHash === sectionHash) return false;
 
-  const beginIdx = existing.indexOf(BEGIN_MARKER);
-  const endIdx = existing.indexOf(END_MARKER);
-
-
-
-  let updated: string;
-  if (beginIdx !== -1 && endIdx !== -1) {
-    updated = existing.slice(0, beginIdx) + section + existing.slice(endIdx + END_MARKER.length);
-  } else {
-    updated = existing.trimEnd() + "\n\n" + section + "\n";
-  }
+  BC_BLOCK_RE.lastIndex = 0;
+  MC_BLOCK_RE.lastIndex = 0;
+  let stripped = existing.replace(BC_BLOCK_RE, "").replace(MC_BLOCK_RE, "");
+  stripped = stripped.replace(/\n{3,}/g, "\n\n").trimEnd();
+  const updated = stripped ? stripped + "\n\n" + section + "\n" : section;
 
   await fs.writeFile(toolsPath, updated, "utf-8");
   return true;
